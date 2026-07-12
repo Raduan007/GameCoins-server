@@ -9,4 +9,9 @@ export declare function register(req: Request, res: Response, next: NextFunction
  * Logs in an existing user.
  */
 export declare function login(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * GET /api/auth/me
+ * Retrieves the current authenticated user's profile.
+ */
+export declare function getCurrentUser(req: Request, res: Response, next: NextFunction): Promise<void>;
 //# sourceMappingURL=auth.controller.d.ts.map

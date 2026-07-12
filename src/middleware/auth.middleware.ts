@@ -19,29 +19,55 @@ export function authenticate(
 ): void {
   try {
     const authHeader = req.headers.authorization;
+    console.log("Authorization Header:", authHeader);
+   
+   if (!authHeader || !authHeader.toLowerCase().startsWith("bearer ")) {
+  console.log("FAILED HERE: Authorization header missing");
+  apiResponse.error(res, "Unauthorized", 401);
+  return;
+}
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      apiResponse.error(res, "Unauthorized", 401);
-      return;
+    let token = authHeader.slice(7).trim();
+    
+    // Strip redundant Bearer prefix if nested (common client misconfiguration)
+    if (token.toLowerCase().startsWith("bearer ")) {
+      token = token.slice(7).trim();
     }
 
-    const token = authHeader.split(" ")[1];
+    // Strip surrounding quotes if copied incorrectly
+    if (token.startsWith('"') && token.endsWith('"')) {
+      token = token.slice(1, -1);
+    }
+
     if (!token) {
-      apiResponse.error(res, "Unauthorized", 401);
-      return;
-    }
+  console.log("FAILED HERE: Token empty");
+  apiResponse.error(res, "Unauthorized", 401);
+  return;
+}
 
     const jwtSecret = process.env.JWT_SECRET;
     if (!jwtSecret) {
       throw new Error("JWT_SECRET is not defined in the environment");
     }
 
-    const decoded = jwt.verify(token, jwtSecret) as DecodedToken;
+    let decoded: DecodedToken;
 
+try {
+  decoded = jwt.verify(token, jwtSecret) as DecodedToken;
+  console.log("Decoded JWT:", decoded);
+} catch (error) {
+  console.log("JWT Verify Error:", error);
+  throw error;
+}
     if (!decoded.userId || !decoded.email || !decoded.role) {
       apiResponse.error(res, "Unauthorized", 401);
       return;
-    }
+    }if (!decoded.userId || !decoded.email || !decoded.role) {
+  console.log("FAILED HERE: Payload missing", decoded);
+  apiResponse.error(res, "Unauthorized", 401);
+  return;
+}
+    console.log("Decoded Payload:", decoded);
 
     req.user = {
       userId: decoded.userId,

@@ -12,11 +12,14 @@ const auth_routes_1 = __importDefault(require("./routes/auth.routes"));
 const errorHandler_1 = require("./middleware/errorHandler");
 const node_dns_1 = __importDefault(require("node:dns"));
 node_dns_1.default.setServers(["8.8.8.8", "8.8.4.4"]);
-require("dotenv/config");
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5000;
 // Middleware
-app.use((0, cors_1.default)({ origin: "http://localhost:3000", credentials: true }));
+app.use((0, cors_1.default)({
+    origin: "http://localhost:3000",
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"],
+}));
 app.use(express_1.default.json());
 // Health check
 app.get("/health", (_req, res) => {

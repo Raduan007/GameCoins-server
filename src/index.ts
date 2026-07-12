@@ -10,13 +10,17 @@ import dns from "node:dns";
 
 dns.setServers(["8.8.8.8", "8.8.4.4"]);
 
-import "dotenv/config";
-
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors({ origin: "http://localhost:3000", credentials: true }));
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 app.use(express.json());
 
 // Health check

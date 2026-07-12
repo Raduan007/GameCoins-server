@@ -13,12 +13,23 @@ const apiResponse_1 = __importDefault(require("../utils/apiResponse"));
 function authenticate(req, res, next) {
     try {
         const authHeader = req.headers.authorization;
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        console.log("Authorization Header:", authHeader);
+        if (!authHeader || !authHeader.toLowerCase().startsWith("bearer ")) {
+            console.log("FAILED HERE: Authorization header missing");
             apiResponse_1.default.error(res, "Unauthorized", 401);
             return;
         }
-        const token = authHeader.split(" ")[1];
+        let token = authHeader.slice(7).trim();
+        // Strip redundant Bearer prefix if nested (common client misconfiguration)
+        if (token.toLowerCase().startsWith("bearer ")) {
+            token = token.slice(7).trim();
+        }
+        // Strip surrounding quotes if copied incorrectly
+        if (token.startsWith('"') && token.endsWith('"')) {
+            token = token.slice(1, -1);
+        }
         if (!token) {
+            console.log("FAILED HERE: Token empty");
             apiResponse_1.default.error(res, "Unauthorized", 401);
             return;
         }
@@ -26,11 +37,25 @@ function authenticate(req, res, next) {
         if (!jwtSecret) {
             throw new Error("JWT_SECRET is not defined in the environment");
         }
-        const decoded = jsonwebtoken_1.default.verify(token, jwtSecret);
+        let decoded;
+        try {
+            decoded = jsonwebtoken_1.default.verify(token, jwtSecret);
+            console.log("Decoded JWT:", decoded);
+        }
+        catch (error) {
+            console.log("JWT Verify Error:", error);
+            throw error;
+        }
         if (!decoded.userId || !decoded.email || !decoded.role) {
             apiResponse_1.default.error(res, "Unauthorized", 401);
             return;
         }
+        if (!decoded.userId || !decoded.email || !decoded.role) {
+            console.log("FAILED HERE: Payload missing", decoded);
+            apiResponse_1.default.error(res, "Unauthorized", 401);
+            return;
+        }
+        console.log("Decoded Payload:", decoded);
         req.user = {
             userId: decoded.userId,
             email: decoded.email,

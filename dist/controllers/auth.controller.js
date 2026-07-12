@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.register = register;
 exports.login = login;
+exports.getCurrentUser = getCurrentUser;
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const db_1 = __importDefault(require("../config/db"));
@@ -119,6 +120,37 @@ async function login(req, res, next) {
             user: userResponse,
         };
         apiResponse_1.default.success(res, responseData, "Login successful");
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/**
+ * GET /api/auth/me
+ * Retrieves the current authenticated user's profile.
+ */
+async function getCurrentUser(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        if (!req.user || !req.user.userId) {
+            throw new errorHandler_1.ApiError("Unauthorized", 401);
+        }
+        const user = await user_model_1.default.findById(req.user.userId).lean();
+        if (!user) {
+            throw errorHandler_1.ApiErrors.notFound("User");
+        }
+        // Exclude password from the response
+        const responseData = {
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            avatar: user.avatar,
+            isActive: user.isActive,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
+        };
+        apiResponse_1.default.success(res, responseData, "User fetched successfully");
     }
     catch (error) {
         next(error);

@@ -231,3 +231,55 @@ export async function deleteGame(
     next(error);
   }
 }
+
+/**
+ * GET /api/games/featured
+ * Returns only games where isFeatured is true and isActive is true.
+ */
+export async function getFeaturedGames(
+  _req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
+
+    const games = await Game.find({ isFeatured: true, isActive: true })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    if (!games || games.length === 0) {
+      throw new ApiError("No featured games found", 404);
+    }
+
+    apiResponse.success(res, games, "Featured games fetched successfully");
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * GET /api/games/popular
+ * Returns only games where isPopular is true and isActive is true.
+ */
+export async function getPopularGames(
+  _req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
+
+    const games = await Game.find({ isPopular: true, isActive: true })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    if (!games || games.length === 0) {
+      throw new ApiError("No popular games found", 404);
+    }
+
+    apiResponse.success(res, games, "Popular games fetched successfully");
+  } catch (error) {
+    next(error);
+  }
+}

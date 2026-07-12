@@ -8,6 +8,8 @@ exports.createGame = createGame;
 exports.getGameBySlug = getGameBySlug;
 exports.updateGame = updateGame;
 exports.deleteGame = deleteGame;
+exports.getFeaturedGames = getFeaturedGames;
+exports.getPopularGames = getPopularGames;
 const db_1 = __importDefault(require("../config/db"));
 const apiResponse_1 = __importDefault(require("../utils/apiResponse"));
 const errorHandler_1 = require("../middleware/errorHandler");
@@ -171,6 +173,44 @@ async function deleteGame(req, res, next) {
             throw errorHandler_1.ApiErrors.notFound("Game");
         }
         apiResponse_1.default.success(res, null, "Game deleted successfully");
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/**
+ * GET /api/games/featured
+ * Returns only games where isFeatured is true and isActive is true.
+ */
+async function getFeaturedGames(_req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const games = await game_model_1.default.find({ isFeatured: true, isActive: true })
+            .sort({ createdAt: -1 })
+            .lean();
+        if (!games || games.length === 0) {
+            throw new errorHandler_1.ApiError("No featured games found", 404);
+        }
+        apiResponse_1.default.success(res, games, "Featured games fetched successfully");
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/**
+ * GET /api/games/popular
+ * Returns only games where isPopular is true and isActive is true.
+ */
+async function getPopularGames(_req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const games = await game_model_1.default.find({ isPopular: true, isActive: true })
+            .sort({ createdAt: -1 })
+            .lean();
+        if (!games || games.length === 0) {
+            throw new errorHandler_1.ApiError("No popular games found", 404);
+        }
+        apiResponse_1.default.success(res, games, "Popular games fetched successfully");
     }
     catch (error) {
         next(error);

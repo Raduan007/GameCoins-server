@@ -3,7 +3,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import connectDB from "../config/db";
 import apiResponse from "../utils/apiResponse";
-import { ApiError } from "../middleware/errorHandler";
+import { ApiError, ApiErrors } from "../middleware/errorHandler";
 import User from "../models/user.model";
 
 const REQUIRED_FIELDS = ["name", "email", "password"] as const;
@@ -163,3 +163,44 @@ export async function login(
     next(error);
   }
 }
+
+/**
+ * GET /api/auth/me
+ * Retrieves the current authenticated user's profile.
+ */
+export async function getCurrentUser(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
+
+    if (!req.user || !req.user.userId) {
+      throw new ApiError("Unauthorized", 401);
+    }
+
+    const user = await User.findById(req.user.userId).lean();
+
+    if (!user) {
+      throw ApiErrors.notFound("User");
+    }
+
+    // Exclude password from the response
+    const responseData = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      avatar: user.avatar,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+
+    apiResponse.success(res, responseData, "User fetched successfully");
+  } catch (error) {
+    next(error);
+  }
+}
+
