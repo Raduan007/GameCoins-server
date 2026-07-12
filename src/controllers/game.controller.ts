@@ -3,6 +3,7 @@ import connectDB from "../config/db";
 import apiResponse from "../utils/apiResponse";
 import { ApiError, ApiErrors } from "../middleware/errorHandler";
 import Game from "../models/game.model";
+import Package from "../models/package.model";
 import type { IGame } from "../types/game";
 
 const REQUIRED_FIELDS = [
@@ -139,7 +140,16 @@ export async function getGameBySlug(
       throw ApiErrors.notFound("Game");
     }
 
-    apiResponse.success(res, game, "Game fetched successfully");
+    const packages = await Package.find({ game: game._id, isActive: true })
+      .select("name amount price currency description isPopular")
+      .sort({ price: 1 })
+      .lean();
+
+    apiResponse.success(
+      res,
+      { ...game, packages },
+      "Game fetched successfully"
+    );
   } catch (error) {
     next(error);
   }

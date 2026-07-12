@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import gameRoutes from "./routes/game.routes";
+import packageRoutes from "./routes/package.routes";
 import { errorHandler } from "./middleware/errorHandler";
 
 import dns from "node:dns";
@@ -24,6 +25,7 @@ app.get("/health", (_req, res) => {
 
 // Routes
 app.use("/api/games", gameRoutes);
+app.use("/api/packages", packageRoutes);
 
 // Global error handler (must be last)
 app.use(errorHandler);
