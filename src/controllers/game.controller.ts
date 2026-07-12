@@ -38,14 +38,26 @@ const ALLOWED_FIELDS: (keyof IGame)[] = [
  * GET /api/games
  */
 export async function getGames(
-  _req: Request,
+  req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> {
   try {
     await connectDB();
 
-    const games = await Game.find({ isActive: true })
+    const search = req.query.search as string | undefined;
+    const filter: any = { isActive: true };
+
+    if (search && search.trim() !== "") {
+      const regex = { $regex: search.trim(), $options: "i" };
+      filter.$or = [
+        { name: regex },
+        { category: regex },
+        { publisher: regex },
+      ];
+    }
+
+    const games = await Game.find(filter)
       .sort({ isPopular: -1, createdAt: -1 })
       .lean();
 

@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 /**
  * GET /api/games
  */
-export declare function getGames(_req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function getGames(req: Request, res: Response, next: NextFunction): Promise<void>;
 /**
  * POST /api/games
  */

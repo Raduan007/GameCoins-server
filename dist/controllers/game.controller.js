@@ -44,10 +44,20 @@ const ALLOWED_FIELDS = [
 /**
  * GET /api/games
  */
-async function getGames(_req, res, next) {
+async function getGames(req, res, next) {
     try {
         await (0, db_1.default)();
-        const games = await game_model_1.default.find({ isActive: true })
+        const search = req.query.search;
+        const filter = { isActive: true };
+        if (search && search.trim() !== "") {
+            const regex = { $regex: search.trim(), $options: "i" };
+            filter.$or = [
+                { name: regex },
+                { category: regex },
+                { publisher: regex },
+            ];
+        }
+        const games = await game_model_1.default.find(filter)
             .sort({ isPopular: -1, createdAt: -1 })
             .lean();
         apiResponse_1.default.success(res, games, "Games fetched successfully");
