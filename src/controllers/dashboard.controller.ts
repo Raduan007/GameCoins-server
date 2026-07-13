@@ -4,6 +4,9 @@ import connectDB from "../config/db";
 import apiResponse from "../utils/apiResponse";
 import { ApiError } from "../middleware/errorHandler";
 import Order from "../models/order.model";
+import Payment from "../models/payment.model";
+import Game from "../models/game.model";
+import Wishlist from "../models/wishlist.model";
 
 /**
  * GET /api/dashboard/overview
@@ -118,4 +121,221 @@ export async function getBuyerOrders(
     next(error);
   }
 }
+
+/**
+ * GET /api/dashboard/orders/:id
+ * Returns a specific order details for the logged-in user if they own it.
+ * Populates game and package details.
+ */
+export async function getBuyerOrderById(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
+
+    const { id } = req.params;
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      throw new ApiError("Unauthorized", 401);
+    }
+
+    if (typeof id !== "string" || !mongoose.Types.ObjectId.isValid(id)) {
+      throw new ApiError("Invalid order ID", 400);
+    }
+
+    const order = await Order.findById(id)
+      .populate("game")
+      .populate("package");
+
+    if (!order) {
+      throw new ApiError("Order not found", 404);
+    }
+
+    // Verify ownership
+    const orderUserId = typeof order.user === "object" && order.user !== null && "_id" in order.user
+      ? (order.user as any)._id.toString()
+      : order.user.toString();
+
+    if (orderUserId !== userId) {
+      throw new ApiError("Order not found", 404);
+    }
+
+    apiResponse.success(res, order, "Order fetched successfully", 200);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * GET /api/dashboard/payments
+ * Returns all payments belonging to the logged-in user.
+ * Populates order details, and nested game and package details.
+ * Sorted by newest first.
+ */
+export async function getBuyerPayments(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
+
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new ApiError("Unauthorized", 401);
+    }
+
+    const payments = await Payment.find({ user: userId })
+      .populate({
+        path: "order",
+        populate: [
+          {
+            path: "game",
+          },
+          {
+            path: "package",
+          },
+        ],
+      })
+      .sort({ createdAt: -1 });
+
+    if (payments.length === 0) {
+      apiResponse.success(res, [], "No payments found", 200);
+      return;
+    }
+
+    apiResponse.success(res, payments, "Payments fetched successfully", 200);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * GET /api/dashboard/wishlist
+ * Returns wishlist items for the logged-in user.
+ * Populates game details.
+ * Sorted by newest first.
+ */
+export async function getBuyerWishlist(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
+
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new ApiError("Unauthorized", 401);
+    }
+
+    const wishlist = await Wishlist.find({ user: userId })
+      .populate("game")
+      .sort({ createdAt: -1 });
+
+    if (wishlist.length === 0) {
+      apiResponse.success(res, [], "No wishlist items found", 200);
+      return;
+    }
+
+    apiResponse.success(res, wishlist, "Wishlist fetched successfully", 200);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * POST /api/dashboard/wishlist
+ * Adds a game to the logged-in user's wishlist.
+ */
+export async function addToWishlist(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
+
+    const userId = req.user?.userId;
+    const { gameId } = req.body;
+
+    if (!userId) {
+      throw new ApiError("Unauthorized", 401);
+    }
+
+    if (!gameId || typeof gameId !== "string" || !mongoose.Types.ObjectId.isValid(gameId)) {
+      throw new ApiError("Invalid game ID", 400);
+    }
+
+    const game = await Game.findById(gameId);
+    if (!game) {
+      throw new ApiError("Game not found", 404);
+    }
+
+    // Check duplicate
+    const existing = await Wishlist.findOne({ user: userId, game: gameId });
+    if (existing) {
+      throw new ApiError("Game already in wishlist", 400);
+    }
+
+    const wishlistItem = await Wishlist.create({
+      user: userId,
+      game: gameId,
+    });
+
+    apiResponse.success(res, wishlistItem, "Added to wishlist", 201);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * DELETE /api/dashboard/wishlist/:id
+ * Removes a game from the logged-in user's wishlist.
+ */
+export async function removeFromWishlist(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
+
+    const userId = req.user?.userId;
+    const { id } = req.params;
+
+    if (!userId) {
+      throw new ApiError("Unauthorized", 401);
+    }
+
+    if (!id || typeof id !== "string" || !mongoose.Types.ObjectId.isValid(id)) {
+      throw new ApiError("Wishlist item not found", 404);
+    }
+
+    const wishlistItem = await Wishlist.findById(id);
+    if (!wishlistItem) {
+      throw new ApiError("Wishlist item not found", 404);
+    }
+
+    const wishlistUserId = typeof wishlistItem.user === "object" && wishlistItem.user !== null && "_id" in wishlistItem.user
+      ? (wishlistItem.user as any)._id.toString()
+      : wishlistItem.user.toString();
+
+    if (wishlistUserId !== userId) {
+      throw new ApiError("Wishlist item not found", 404);
+    }
+
+    await Wishlist.deleteOne({ _id: id });
+
+    apiResponse.success(res, null, "Removed from wishlist", 200);
+  } catch (error) {
+    next(error);
+  }
+}
+
+
+
 

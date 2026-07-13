@@ -6,5 +6,10 @@ const auth_middleware_1 = require("../middleware/auth.middleware");
 const router = (0, express_1.Router)();
 router.get("/overview", auth_middleware_1.authenticate, dashboard_controller_1.getDashboardOverview);
 router.get("/orders", auth_middleware_1.authenticate, dashboard_controller_1.getBuyerOrders);
+router.get("/orders/:id", auth_middleware_1.authenticate, dashboard_controller_1.getBuyerOrderById);
+router.get("/payments", auth_middleware_1.authenticate, dashboard_controller_1.getBuyerPayments);
+router.get("/wishlist", auth_middleware_1.authenticate, dashboard_controller_1.getBuyerWishlist);
+router.post("/wishlist", auth_middleware_1.authenticate, dashboard_controller_1.addToWishlist);
+router.delete("/wishlist/:id", auth_middleware_1.authenticate, dashboard_controller_1.removeFromWishlist);
 exports.default = router;
 //# sourceMappingURL=dashboard.routes.js.map
