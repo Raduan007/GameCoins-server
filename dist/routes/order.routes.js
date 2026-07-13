@@ -5,5 +5,6 @@ const order_controller_1 = require("../controllers/order.controller");
 const auth_middleware_1 = require("../middleware/auth.middleware");
 const router = (0, express_1.Router)();
 router.post("/", auth_middleware_1.authenticate, order_controller_1.createOrder);
+router.get("/", auth_middleware_1.authenticate, order_controller_1.getOrders);
 exports.default = router;
 //# sourceMappingURL=order.routes.js.map

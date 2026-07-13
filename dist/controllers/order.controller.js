@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createOrder = createOrder;
+exports.getOrders = getOrders;
 const db_1 = __importDefault(require("../config/db"));
 const apiResponse_1 = __importDefault(require("../utils/apiResponse"));
 const errorHandler_1 = require("../middleware/errorHandler");
@@ -80,5 +81,30 @@ async function createOrder(req, res, next) {
         next(error);
     }
 }
-exports.default = createOrder;
+/**
+ * GET /api/orders
+ * Fetches the order history for the logged-in user, sorted by newest first.
+ * Populates game and package details.
+ */
+async function getOrders(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const userId = req.user?.userId;
+        if (!userId) {
+            throw new errorHandler_1.ApiError("Unauthorized", 401);
+        }
+        const orders = await order_model_1.default.find({ user: userId })
+            .populate("game")
+            .populate("package")
+            .sort({ createdAt: -1 });
+        if (orders.length === 0) {
+            apiResponse_1.default.success(res, [], "No orders found", 200);
+            return;
+        }
+        apiResponse_1.default.success(res, orders, "Orders fetched successfully", 200);
+    }
+    catch (error) {
+        next(error);
+    }
+}
 //# sourceMappingURL=order.controller.js.map

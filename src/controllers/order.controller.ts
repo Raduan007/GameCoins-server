@@ -105,4 +105,37 @@ export async function createOrder(
     next(error);
   }
 }
-export default createOrder;
+
+/**
+ * GET /api/orders
+ * Fetches the order history for the logged-in user, sorted by newest first.
+ * Populates game and package details.
+ */
+export async function getOrders(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
+
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new ApiError("Unauthorized", 401);
+    }
+
+    const orders = await Order.find({ user: userId })
+      .populate("game")
+      .populate("package")
+      .sort({ createdAt: -1 });
+
+    if (orders.length === 0) {
+      apiResponse.success(res, [], "No orders found", 200);
+      return;
+    }
+
+    apiResponse.success(res, orders, "Orders fetched successfully", 200);
+  } catch (error) {
+    next(error);
+  }
+}
