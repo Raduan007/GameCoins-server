@@ -14,4 +14,9 @@ export declare function login(req: Request, res: Response, next: NextFunction): 
  * Retrieves the current authenticated user's profile.
  */
 export declare function getCurrentUser(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * POST /api/auth/google
+ * Authenticates or registers a user via Google ID Token.
+ */
+export declare function googleLogin(req: Request, res: Response, next: NextFunction): Promise<void>;
 //# sourceMappingURL=auth.controller.d.ts.map

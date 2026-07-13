@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.register = register;
 exports.login = login;
 exports.getCurrentUser = getCurrentUser;
+exports.googleLogin = googleLogin;
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const db_1 = __importDefault(require("../config/db"));
@@ -151,6 +152,74 @@ async function getCurrentUser(req, res, next) {
             updatedAt: user.updatedAt,
         };
         apiResponse_1.default.success(res, responseData, "User fetched successfully");
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/**
+ * POST /api/auth/google
+ * Authenticates or registers a user via Google ID Token.
+ */
+async function googleLogin(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const { idToken } = req.body;
+        if (!idToken) {
+            throw new errorHandler_1.ApiError("Google ID token is required", 400);
+        }
+        // Verify token with Google's API
+        const googleRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`);
+        if (!googleRes.ok) {
+            throw new errorHandler_1.ApiError("Invalid Google ID token", 401);
+        }
+        const payload = await googleRes.json();
+        // Validate client ID matches
+        if (payload.aud !== "609340969593-kjbcqp5ca98ie65hm8kd7qm0of0l51uj.apps.googleusercontent.com") {
+            throw new errorHandler_1.ApiError("Invalid Google client ID audience mismatch", 401);
+        }
+        const email = payload.email.trim().toLowerCase();
+        const name = payload.name || payload.given_name || "Google User";
+        const avatar = payload.picture || "";
+        // Find or create user
+        let user = await user_model_1.default.findOne({ email });
+        if (!user) {
+            // Create user with a secure randomized password since passwords are required in schema
+            const randomPassword = await bcrypt_1.default.hash(Math.random().toString(36).slice(-10), 10);
+            user = await user_model_1.default.create({
+                name,
+                email,
+                password: randomPassword,
+                role: "user",
+                avatar,
+                isActive: true,
+            });
+        }
+        const jwtSecret = process.env.JWT_SECRET;
+        if (!jwtSecret) {
+            throw new Error("JWT_SECRET is not defined in the environment");
+        }
+        // Generate JWT token
+        const token = jsonwebtoken_1.default.sign({
+            userId: user._id ? user._id.toString() : "",
+            email: user.email,
+            role: user.role,
+        }, jwtSecret, { expiresIn: "7d" });
+        const userResponse = {
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            avatar: user.avatar,
+            isActive: user.isActive,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
+        };
+        const responseData = {
+            token,
+            user: userResponse,
+        };
+        apiResponse_1.default.success(res, responseData, "Google login successful");
     }
     catch (error) {
         next(error);
