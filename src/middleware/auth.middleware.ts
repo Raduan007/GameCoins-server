@@ -87,3 +87,23 @@ try {
     next(error);
   }
 }
+
+/**
+ * Role authorization middleware
+ * Checks if the authenticated user has one of the allowed roles.
+ */
+export function authorizeRoles(...allowedRoles: string[]) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      apiResponse.error(res, "Unauthorized", 401);
+      return;
+    }
+
+    if (!allowedRoles.includes(req.user.role)) {
+      apiResponse.error(res, "Forbidden", 403);
+      return;
+    }
+
+    next();
+  };
+}

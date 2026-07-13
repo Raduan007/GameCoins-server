@@ -48,6 +48,7 @@ async function getGames(req, res, next) {
     try {
         await (0, db_1.default)();
         const search = req.query.search;
+        const category = req.query.category;
         const filter = { isActive: true };
         if (search && search.trim() !== "") {
             const regex = { $regex: search.trim(), $options: "i" };
@@ -57,10 +58,32 @@ async function getGames(req, res, next) {
                 { publisher: regex },
             ];
         }
+        if (category && category.trim() !== "") {
+            filter.category = { $regex: category.trim(), $options: "i" };
+        }
+        // Pagination parsing and validation
+        let page = parseInt(req.query.page, 10);
+        let limit = parseInt(req.query.limit, 10);
+        if (isNaN(page) || page <= 0) {
+            page = 1;
+        }
+        if (isNaN(limit) || limit <= 0) {
+            limit = 10;
+        }
+        const skip = (page - 1) * limit;
+        const totalGames = await game_model_1.default.countDocuments(filter);
         const games = await game_model_1.default.find(filter)
             .sort({ isPopular: -1, createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
             .lean();
-        apiResponse_1.default.success(res, games, "Games fetched successfully");
+        const totalPages = Math.ceil(totalGames / limit);
+        apiResponse_1.default.success(res, games, "Games fetched successfully", 200, {
+            totalGames,
+            currentPage: page,
+            totalPages,
+            limit,
+        });
     }
     catch (error) {
         next(error);

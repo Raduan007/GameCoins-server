@@ -1,10 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-function success(res, data, message, status = 200) {
+function success(res, data, message, status = 200, pagination) {
     const body = {
         success: true,
         data,
         ...(message && { message }),
+        ...(pagination && { pagination }),
     };
     res.status(status).json(body);
 }

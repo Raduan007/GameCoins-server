@@ -4,6 +4,12 @@ interface ApiSuccessBody<T = unknown> {
   success: true;
   data: T;
   message?: string;
+  pagination?: {
+    totalGames: number;
+    currentPage: number;
+    totalPages: number;
+    limit: number;
+  };
 }
 
 interface ApiErrorBody {
@@ -16,12 +22,19 @@ function success<T>(
   res: Response,
   data: T,
   message?: string,
-  status = 200
+  status = 200,
+  pagination?: {
+    totalGames: number;
+    currentPage: number;
+    totalPages: number;
+    limit: number;
+  }
 ): void {
   const body: ApiSuccessBody<T> = {
     success: true,
     data,
     ...(message && { message }),
+    ...(pagination && { pagination }),
   };
   res.status(status).json(body);
 }
