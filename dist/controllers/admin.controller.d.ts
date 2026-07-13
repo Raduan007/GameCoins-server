@@ -65,4 +65,19 @@ export declare function updateAdminPackage(req: Request, res: Response, next: Ne
  * DELETE /api/dashboard/admin/packages/:id
  */
 export declare function deleteAdminPackage(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * GET /api/dashboard/admin/orders
+ * Returns paginated, searchable, filtered list of all orders.
+ */
+export declare function getAdminOrders(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * GET /api/dashboard/admin/orders/:id
+ * Returns full order details with all populated references.
+ */
+export declare function getAdminOrderById(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * PATCH /api/dashboard/admin/orders/:id/status
+ * Allows admin to update an order's orderStatus.
+ */
+export declare function updateAdminOrderStatus(req: Request, res: Response, next: NextFunction): Promise<void>;
 //# sourceMappingURL=admin.controller.d.ts.map

@@ -18,6 +18,9 @@ exports.getAdminPackageById = getAdminPackageById;
 exports.createAdminPackage = createAdminPackage;
 exports.updateAdminPackage = updateAdminPackage;
 exports.deleteAdminPackage = deleteAdminPackage;
+exports.getAdminOrders = getAdminOrders;
+exports.getAdminOrderById = getAdminOrderById;
+exports.updateAdminOrderStatus = updateAdminOrderStatus;
 const db_1 = __importDefault(require("../config/db"));
 const apiResponse_1 = __importDefault(require("../utils/apiResponse"));
 const errorHandler_1 = require("../middleware/errorHandler");
@@ -530,6 +533,133 @@ async function deleteAdminPackage(req, res, next) {
             throw new errorHandler_1.ApiError("Package not found", 404);
         }
         apiResponse_1.default.success(res, null, "Package deleted successfully");
+    }
+    catch (error) {
+        next(error);
+    }
+}
+// ─────────────────────────────────────────────────────────────
+// ORDER MANAGEMENT
+// ─────────────────────────────────────────────────────────────
+const ALLOWED_ORDER_STATUSES = ["pending", "processing", "completed", "cancelled"];
+/**
+ * GET /api/dashboard/admin/orders
+ * Returns paginated, searchable, filtered list of all orders.
+ */
+async function getAdminOrders(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+        const baseQuery = {};
+        if (req.query.orderStatus && req.query.orderStatus !== "all") {
+            baseQuery.orderStatus = req.query.orderStatus;
+        }
+        if (req.query.paymentStatus && req.query.paymentStatus !== "all") {
+            baseQuery.paymentStatus = req.query.paymentStatus;
+        }
+        const searchTerm = req.query.search;
+        let orders;
+        let total;
+        if (searchTerm) {
+            const searchRegex = new RegExp(searchTerm, "i");
+            const pipeline = [
+                { $lookup: { from: "users", localField: "user", foreignField: "_id", as: "userDoc" } },
+                { $unwind: { path: "$userDoc", preserveNullAndEmpty: true } },
+                { $lookup: { from: "games", localField: "game", foreignField: "_id", as: "gameDoc" } },
+                { $unwind: { path: "$gameDoc", preserveNullAndEmpty: true } },
+                { $lookup: { from: "packages", localField: "package", foreignField: "_id", as: "packageDoc" } },
+                { $unwind: { path: "$packageDoc", preserveNullAndEmpty: true } },
+                {
+                    $match: {
+                        ...baseQuery,
+                        $or: [
+                            { "userDoc.name": searchRegex },
+                            { "userDoc.email": searchRegex },
+                            { "gameDoc.name": searchRegex },
+                            { playerId: searchRegex },
+                        ],
+                    },
+                },
+                { $sort: { createdAt: -1 } },
+            ];
+            const [countResult, docs] = await Promise.all([
+                order_model_1.default.aggregate([...pipeline, { $count: "total" }]),
+                order_model_1.default.aggregate([...pipeline, { $skip: skip }, { $limit: limit }]),
+            ]);
+            total = countResult[0]?.total || 0;
+            orders = docs.map((doc) => ({
+                ...doc,
+                user: doc.userDoc,
+                game: doc.gameDoc,
+                package: doc.packageDoc,
+            }));
+        }
+        else {
+            [orders, total] = await Promise.all([
+                order_model_1.default.find(baseQuery)
+                    .sort({ createdAt: -1 })
+                    .skip(skip)
+                    .limit(limit)
+                    .populate("user", "name email role avatar")
+                    .populate("game", "name logo platform category")
+                    .populate("package", "name price amount"),
+                order_model_1.default.countDocuments(baseQuery),
+            ]);
+        }
+        apiResponse_1.default.success(res, { orders, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }, "Orders list retrieved successfully");
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/**
+ * GET /api/dashboard/admin/orders/:id
+ * Returns full order details with all populated references.
+ */
+async function getAdminOrderById(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const order = await order_model_1.default.findById(req.params.id)
+            .populate("user", "name email role avatar createdAt isActive")
+            .populate("game", "name logo platform category slug")
+            .populate("package", "name price amount currency description");
+        if (!order) {
+            throw new errorHandler_1.ApiError("Order not found", 404);
+        }
+        const payment = await payment_model_1.default.findOne({ order: order._id }).select("paymentStatus paymentMethod transactionId amount createdAt");
+        apiResponse_1.default.success(res, { order, payment }, "Order details retrieved successfully");
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/**
+ * PATCH /api/dashboard/admin/orders/:id/status
+ * Allows admin to update an order's orderStatus.
+ */
+async function updateAdminOrderStatus(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const { orderStatus } = req.body;
+        if (!orderStatus) {
+            throw new errorHandler_1.ApiError("orderStatus is required", 400);
+        }
+        if (!ALLOWED_ORDER_STATUSES.includes(orderStatus)) {
+            throw new errorHandler_1.ApiError(`Invalid order status. Allowed: ${ALLOWED_ORDER_STATUSES.join(", ")}`, 400);
+        }
+        const order = await order_model_1.default.findById(req.params.id);
+        if (!order) {
+            throw new errorHandler_1.ApiError("Order not found", 404);
+        }
+        order.orderStatus = orderStatus;
+        await order.save();
+        const populated = await order_model_1.default.findById(order._id)
+            .populate("user", "name email role")
+            .populate("game", "name logo")
+            .populate("package", "name price");
+        apiResponse_1.default.success(res, populated, "Order status updated successfully");
     }
     catch (error) {
         next(error);

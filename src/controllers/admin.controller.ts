@@ -608,3 +608,173 @@ export async function deleteAdminPackage(req: Request, res: Response, next: Next
     next(error);
   }
 }
+
+
+// ─────────────────────────────────────────────────────────────
+// ORDER MANAGEMENT
+// ─────────────────────────────────────────────────────────────
+
+const ALLOWED_ORDER_STATUSES = ["pending", "processing", "completed", "cancelled"] as const;
+
+/**
+ * GET /api/dashboard/admin/orders
+ * Returns paginated, searchable, filtered list of all orders.
+ */
+export async function getAdminOrders(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
+
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const skip = (page - 1) * limit;
+
+    const baseQuery: any = {};
+
+    if (req.query.orderStatus && req.query.orderStatus !== "all") {
+      baseQuery.orderStatus = req.query.orderStatus;
+    }
+
+    if (req.query.paymentStatus && req.query.paymentStatus !== "all") {
+      baseQuery.paymentStatus = req.query.paymentStatus;
+    }
+
+    const searchTerm = req.query.search as string;
+    let orders: any[];
+    let total: number;
+
+    if (searchTerm) {
+      const searchRegex = new RegExp(searchTerm, "i");
+      const pipeline: any[] = [
+        { $lookup: { from: "users", localField: "user", foreignField: "_id", as: "userDoc" } },
+        { $unwind: { path: "$userDoc", preserveNullAndEmpty: true } },
+        { $lookup: { from: "games", localField: "game", foreignField: "_id", as: "gameDoc" } },
+        { $unwind: { path: "$gameDoc", preserveNullAndEmpty: true } },
+        { $lookup: { from: "packages", localField: "package", foreignField: "_id", as: "packageDoc" } },
+        { $unwind: { path: "$packageDoc", preserveNullAndEmpty: true } },
+        {
+          $match: {
+            ...baseQuery,
+            $or: [
+              { "userDoc.name": searchRegex },
+              { "userDoc.email": searchRegex },
+              { "gameDoc.name": searchRegex },
+              { playerId: searchRegex },
+            ],
+          },
+        },
+        { $sort: { createdAt: -1 } },
+      ];
+
+      const [countResult, docs] = await Promise.all([
+        Order.aggregate([...pipeline, { $count: "total" }]),
+        Order.aggregate([...pipeline, { $skip: skip }, { $limit: limit }]),
+      ]);
+
+      total = countResult[0]?.total || 0;
+      orders = docs.map((doc: any) => ({
+        ...doc,
+        user: doc.userDoc,
+        game: doc.gameDoc,
+        package: doc.packageDoc,
+      }));
+    } else {
+      [orders, total] = await Promise.all([
+        Order.find(baseQuery)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .populate("user", "name email role avatar")
+          .populate("game", "name logo platform category")
+          .populate("package", "name price amount"),
+        Order.countDocuments(baseQuery),
+      ]);
+    }
+
+    apiResponse.success(
+      res,
+      { orders, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } },
+      "Orders list retrieved successfully"
+    );
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * GET /api/dashboard/admin/orders/:id
+ * Returns full order details with all populated references.
+ */
+export async function getAdminOrderById(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
+
+    const order = await Order.findById(req.params.id)
+      .populate("user", "name email role avatar createdAt isActive")
+      .populate("game", "name logo platform category slug")
+      .populate("package", "name price amount currency description");
+
+    if (!order) {
+      throw new ApiError("Order not found", 404);
+    }
+
+    const payment = await Payment.findOne({ order: order._id }).select(
+      "paymentStatus paymentMethod transactionId amount createdAt"
+    );
+
+    apiResponse.success(res, { order, payment }, "Order details retrieved successfully");
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * PATCH /api/dashboard/admin/orders/:id/status
+ * Allows admin to update an order's orderStatus.
+ */
+export async function updateAdminOrderStatus(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
+
+    const { orderStatus } = req.body;
+
+    if (!orderStatus) {
+      throw new ApiError("orderStatus is required", 400);
+    }
+
+    if (!ALLOWED_ORDER_STATUSES.includes(orderStatus as any)) {
+      throw new ApiError(
+        `Invalid order status. Allowed: ${ALLOWED_ORDER_STATUSES.join(", ")}`,
+        400
+      );
+    }
+
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      throw new ApiError("Order not found", 404);
+    }
+
+    order.orderStatus = orderStatus;
+    await order.save();
+
+    const populated = await Order.findById(order._id)
+      .populate("user", "name email role")
+      .populate("game", "name logo")
+      .populate("package", "name price");
+
+    apiResponse.success(res, populated, "Order status updated successfully");
+  } catch (error) {
+    next(error);
+  }
+}

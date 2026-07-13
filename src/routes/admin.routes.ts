@@ -15,6 +15,9 @@ import {
   createAdminPackage,
   updateAdminPackage,
   deleteAdminPackage,
+  getAdminOrders,
+  getAdminOrderById,
+  updateAdminOrderStatus,
 } from "../controllers/admin.controller";
 import { authenticate, authorizeRoles } from "../middleware/auth.middleware";
 
@@ -44,5 +47,10 @@ router.get("/packages/:id", getAdminPackageById);
 router.post("/packages", createAdminPackage);
 router.patch("/packages/:id", updateAdminPackage);
 router.delete("/packages/:id", deleteAdminPackage);
+
+// Order Management
+router.get("/orders", getAdminOrders);
+router.get("/orders/:id", getAdminOrderById);
+router.patch("/orders/:id/status", updateAdminOrderStatus);
 
 export default router;

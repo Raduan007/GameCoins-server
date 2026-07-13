@@ -24,5 +24,9 @@ router.get("/packages/:id", admin_controller_1.getAdminPackageById);
 router.post("/packages", admin_controller_1.createAdminPackage);
 router.patch("/packages/:id", admin_controller_1.updateAdminPackage);
 router.delete("/packages/:id", admin_controller_1.deleteAdminPackage);
+// Order Management
+router.get("/orders", admin_controller_1.getAdminOrders);
+router.get("/orders/:id", admin_controller_1.getAdminOrderById);
+router.patch("/orders/:id/status", admin_controller_1.updateAdminOrderStatus);
 exports.default = router;
 //# sourceMappingURL=admin.routes.js.map
