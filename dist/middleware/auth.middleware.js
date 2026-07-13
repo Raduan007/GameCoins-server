@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.authenticate = authenticate;
+exports.authorizeRoles = authorizeRoles;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const apiResponse_1 = __importDefault(require("../utils/apiResponse"));
 /**
@@ -71,5 +72,22 @@ function authenticate(req, res, next) {
         }
         next(error);
     }
+}
+/**
+ * Role authorization middleware
+ * Checks if the authenticated user has one of the allowed roles.
+ */
+function authorizeRoles(...allowedRoles) {
+    return (req, res, next) => {
+        if (!req.user) {
+            apiResponse_1.default.error(res, "Unauthorized", 401);
+            return;
+        }
+        if (!allowedRoles.includes(req.user.role)) {
+            apiResponse_1.default.error(res, "Forbidden", 403);
+            return;
+        }
+        next();
+    };
 }
 //# sourceMappingURL=auth.middleware.js.map
