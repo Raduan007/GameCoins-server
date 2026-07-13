@@ -4,6 +4,7 @@ import cors from "cors";
 import gameRoutes from "./routes/game.routes";
 import packageRoutes from "./routes/package.routes";
 import authRoutes from "./routes/auth.routes";
+import orderRoutes from "./routes/order.routes";
 import { errorHandler } from "./middleware/errorHandler";
 
 import dns from "node:dns";
@@ -32,6 +33,7 @@ app.get("/health", (_req, res) => {
 app.use("/api/games", gameRoutes);
 app.use("/api/packages", packageRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/orders", orderRoutes);
 
 // Global error handler (must be last)
 app.use(errorHandler);
