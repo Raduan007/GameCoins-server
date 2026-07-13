@@ -99,7 +99,7 @@ async function main() {
   if (!pkg) {
     pkg = await Package.create({
       game: game._id,
-      title: "Dashboard Test Package",
+      name: "Dashboard Test Package",
       price: 15,
       isActive: true,
     });
