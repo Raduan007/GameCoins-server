@@ -649,6 +649,17 @@ export async function getAdminOrders(
 
     if (searchTerm) {
       const searchRegex = new RegExp(searchTerm, "i");
+      const isObjectId = mongoose.Types.ObjectId.isValid(searchTerm);
+      const matchConditions: any[] = [
+        { "userDoc.name": searchRegex },
+        { "userDoc.email": searchRegex },
+        { "gameDoc.name": searchRegex },
+        { playerId: searchRegex },
+      ];
+      if (isObjectId) {
+        matchConditions.push({ _id: new mongoose.Types.ObjectId(searchTerm) });
+      }
+
       const pipeline: any[] = [
         { $lookup: { from: "users", localField: "user", foreignField: "_id", as: "userDoc" } },
         { $unwind: { path: "$userDoc", preserveNullAndEmptyArrays: true } },
@@ -659,12 +670,7 @@ export async function getAdminOrders(
         {
           $match: {
             ...baseQuery,
-            $or: [
-              { "userDoc.name": searchRegex },
-              { "userDoc.email": searchRegex },
-              { "gameDoc.name": searchRegex },
-              { playerId: searchRegex },
-            ],
+            $or: matchConditions,
           },
         },
         { $sort: { createdAt: -1 } },
@@ -816,6 +822,16 @@ export async function getAdminPayments(
 
     if (searchTerm) {
       const searchRegex = new RegExp(searchTerm, "i");
+      const isObjectId = mongoose.Types.ObjectId.isValid(searchTerm);
+      const matchConditions: any[] = [
+        { transactionId: searchRegex },
+        { "userDoc.name": searchRegex },
+        { "userDoc.email": searchRegex },
+      ];
+      if (isObjectId) {
+        matchConditions.push({ order: new mongoose.Types.ObjectId(searchTerm) });
+      }
+
       const pipeline: any[] = [
         { $lookup: { from: "users", localField: "user", foreignField: "_id", as: "userDoc" } },
         { $unwind: { path: "$userDoc", preserveNullAndEmptyArrays: true } },
@@ -828,11 +844,7 @@ export async function getAdminPayments(
         {
           $match: {
             ...baseQuery,
-            $or: [
-              { transactionId: searchRegex },
-              { "userDoc.name": searchRegex },
-              { "userDoc.email": searchRegex },
-            ],
+            $or: matchConditions,
           },
         },
         { $sort: { createdAt: -1 } },

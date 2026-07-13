@@ -171,6 +171,9 @@ async function runVerification() {
     console.log("\n📋 Test 4: Search works");
     const r4 = await req("GET", `${BASE}/payments?search=TXN-VERIFY-001`, adminToken);
     check("Search by transactionId returns results", r4.status === 200, `got ${r4.status}`);
+    
+    const r4_order = await req("GET", `${BASE}/payments?search=${testOrderId}`, adminToken);
+    check("Search by orderId returns results", r4_order.status === 200 && r4_order.data?.data?.payments?.length > 0, `got ${r4_order.status}`);
 
     console.log("\n📋 Test 5: Filter by paymentMethod");
     const r5 = await req("GET", `${BASE}/payments?paymentMethod=bkash`, adminToken);

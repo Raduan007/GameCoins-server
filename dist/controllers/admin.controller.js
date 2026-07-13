@@ -23,6 +23,7 @@ exports.getAdminOrderById = getAdminOrderById;
 exports.updateAdminOrderStatus = updateAdminOrderStatus;
 exports.getAdminPayments = getAdminPayments;
 exports.getAdminPaymentById = getAdminPaymentById;
+const mongoose_1 = __importDefault(require("mongoose"));
 const db_1 = __importDefault(require("../config/db"));
 const apiResponse_1 = __importDefault(require("../utils/apiResponse"));
 const errorHandler_1 = require("../middleware/errorHandler");
@@ -566,6 +567,16 @@ async function getAdminOrders(req, res, next) {
         let total;
         if (searchTerm) {
             const searchRegex = new RegExp(searchTerm, "i");
+            const isObjectId = mongoose_1.default.Types.ObjectId.isValid(searchTerm);
+            const matchConditions = [
+                { "userDoc.name": searchRegex },
+                { "userDoc.email": searchRegex },
+                { "gameDoc.name": searchRegex },
+                { playerId: searchRegex },
+            ];
+            if (isObjectId) {
+                matchConditions.push({ _id: new mongoose_1.default.Types.ObjectId(searchTerm) });
+            }
             const pipeline = [
                 { $lookup: { from: "users", localField: "user", foreignField: "_id", as: "userDoc" } },
                 { $unwind: { path: "$userDoc", preserveNullAndEmptyArrays: true } },
@@ -576,12 +587,7 @@ async function getAdminOrders(req, res, next) {
                 {
                     $match: {
                         ...baseQuery,
-                        $or: [
-                            { "userDoc.name": searchRegex },
-                            { "userDoc.email": searchRegex },
-                            { "gameDoc.name": searchRegex },
-                            { playerId: searchRegex },
-                        ],
+                        $or: matchConditions,
                     },
                 },
                 { $sort: { createdAt: -1 } },
@@ -692,6 +698,15 @@ async function getAdminPayments(req, res, next) {
         let total;
         if (searchTerm) {
             const searchRegex = new RegExp(searchTerm, "i");
+            const isObjectId = mongoose_1.default.Types.ObjectId.isValid(searchTerm);
+            const matchConditions = [
+                { transactionId: searchRegex },
+                { "userDoc.name": searchRegex },
+                { "userDoc.email": searchRegex },
+            ];
+            if (isObjectId) {
+                matchConditions.push({ order: new mongoose_1.default.Types.ObjectId(searchTerm) });
+            }
             const pipeline = [
                 { $lookup: { from: "users", localField: "user", foreignField: "_id", as: "userDoc" } },
                 { $unwind: { path: "$userDoc", preserveNullAndEmptyArrays: true } },
@@ -704,11 +719,7 @@ async function getAdminPayments(req, res, next) {
                 {
                     $match: {
                         ...baseQuery,
-                        $or: [
-                            { transactionId: searchRegex },
-                            { "userDoc.name": searchRegex },
-                            { "userDoc.email": searchRegex },
-                        ],
+                        $or: matchConditions,
                     },
                 },
                 { $sort: { createdAt: -1 } },
