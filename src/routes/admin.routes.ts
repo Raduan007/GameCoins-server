@@ -21,6 +21,9 @@ import {
   getAdminPayments,
   getAdminPaymentById,
   getAdminReports,
+  getAdminProfile,
+  updateAdminProfile,
+  changeAdminPassword,
 } from "../controllers/admin.controller";
 import { authenticate, authorizeRoles } from "../middleware/auth.middleware";
 
@@ -31,6 +34,11 @@ router.use(authenticate, authorizeRoles("admin"));
 
 router.get("/overview", getAdminOverview);
 router.get("/reports", getAdminReports);
+
+// Profile & Settings
+router.get("/profile", getAdminProfile);
+router.patch("/profile", updateAdminProfile);
+router.patch("/profile/password", changeAdminPassword);
 
 // User Management
 router.get("/users", getAllUsers);

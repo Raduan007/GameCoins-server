@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import mongoose from "mongoose";
+import bcrypt from "bcrypt";
 import connectDB from "../config/db";
 import apiResponse from "../utils/apiResponse";
 import { ApiError } from "../middleware/errorHandler";
@@ -1205,6 +1206,145 @@ export async function getAdminReports(
       { overview, revenue, orderStatus, sales, sellerPerformance },
       "Admin reports retrieved successfully"
     );
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// PROFILE & SETTINGS
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/dashboard/admin/profile
+ * Returns the currently authenticated admin's profile.
+ */
+export async function getAdminProfile(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
+
+    if (!req.user || !req.user.userId) {
+      throw new ApiError("Unauthorized", 401);
+    }
+
+    const user = await User.findById(req.user.userId).select("-password").lean();
+    if (!user) {
+      throw new ApiError("User not found", 404);
+    }
+
+    if (user.role !== "admin") {
+      throw new ApiError("Forbidden: Admin access required", 403);
+    }
+
+    apiResponse.success(res, user, "Admin profile retrieved successfully");
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * PATCH /api/dashboard/admin/profile
+ * Allows admin to update their name and avatar.
+ */
+export async function updateAdminProfile(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
+
+    if (!req.user || !req.user.userId) {
+      throw new ApiError("Unauthorized", 401);
+    }
+
+    const { name, avatar } = req.body;
+
+    if (name !== undefined) {
+      if (typeof name !== "string" || name.trim() === "") {
+        throw new ApiError("Name cannot be empty", 400);
+      }
+    }
+
+    if (avatar !== undefined) {
+      if (typeof avatar !== "string") {
+        throw new ApiError("Avatar must be a string URL", 400);
+      }
+    }
+
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      throw new ApiError("User not found", 404);
+    }
+
+    if (user.role !== "admin") {
+      throw new ApiError("Forbidden: Admin access required", 403);
+    }
+
+    if (name !== undefined) user.name = name.trim();
+    if (avatar !== undefined) user.avatar = avatar.trim();
+
+    await user.save();
+
+    const updatedUser = await User.findById(user._id).select("-password").lean();
+    apiResponse.success(res, updatedUser, "Admin profile updated successfully");
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * PATCH /api/dashboard/admin/profile/password
+ * Allows admin to change their password.
+ */
+export async function changeAdminPassword(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
+
+    if (!req.user || !req.user.userId) {
+      throw new ApiError("Unauthorized", 401);
+    }
+
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      throw new ApiError("All password fields are required", 400);
+    }
+
+    if (newPassword.length < 8) {
+      throw new ApiError("New password must be at least 8 characters long", 400);
+    }
+
+    if (newPassword !== confirmPassword) {
+      throw new ApiError("New password and confirmation do not match", 400);
+    }
+
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      throw new ApiError("User not found", 404);
+    }
+
+    if (user.role !== "admin") {
+      throw new ApiError("Forbidden: Admin access required", 403);
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      throw new ApiError("Incorrect current password", 400);
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    apiResponse.success(res, null, "Password changed successfully");
   } catch (error) {
     next(error);
   }

@@ -24,7 +24,11 @@ exports.updateAdminOrderStatus = updateAdminOrderStatus;
 exports.getAdminPayments = getAdminPayments;
 exports.getAdminPaymentById = getAdminPaymentById;
 exports.getAdminReports = getAdminReports;
+exports.getAdminProfile = getAdminProfile;
+exports.updateAdminProfile = updateAdminProfile;
+exports.changeAdminPassword = changeAdminPassword;
 const mongoose_1 = __importDefault(require("mongoose"));
+const bcrypt_1 = __importDefault(require("bcrypt"));
 const db_1 = __importDefault(require("../config/db"));
 const apiResponse_1 = __importDefault(require("../utils/apiResponse"));
 const errorHandler_1 = require("../middleware/errorHandler");
@@ -1049,6 +1053,111 @@ async function getAdminReports(req, res, next) {
             revenueGenerated: 0,
         }));
         apiResponse_1.default.success(res, { overview, revenue, orderStatus, sales, sellerPerformance }, "Admin reports retrieved successfully");
+    }
+    catch (error) {
+        next(error);
+    }
+}
+// ─────────────────────────────────────────────────────────────
+// PROFILE & SETTINGS
+// ─────────────────────────────────────────────────────────────
+/**
+ * GET /api/dashboard/admin/profile
+ * Returns the currently authenticated admin's profile.
+ */
+async function getAdminProfile(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        if (!req.user || !req.user.userId) {
+            throw new errorHandler_1.ApiError("Unauthorized", 401);
+        }
+        const user = await user_model_1.default.findById(req.user.userId).select("-password").lean();
+        if (!user) {
+            throw new errorHandler_1.ApiError("User not found", 404);
+        }
+        if (user.role !== "admin") {
+            throw new errorHandler_1.ApiError("Forbidden: Admin access required", 403);
+        }
+        apiResponse_1.default.success(res, user, "Admin profile retrieved successfully");
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/**
+ * PATCH /api/dashboard/admin/profile
+ * Allows admin to update their name and avatar.
+ */
+async function updateAdminProfile(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        if (!req.user || !req.user.userId) {
+            throw new errorHandler_1.ApiError("Unauthorized", 401);
+        }
+        const { name, avatar } = req.body;
+        if (name !== undefined) {
+            if (typeof name !== "string" || name.trim() === "") {
+                throw new errorHandler_1.ApiError("Name cannot be empty", 400);
+            }
+        }
+        if (avatar !== undefined) {
+            if (typeof avatar !== "string") {
+                throw new errorHandler_1.ApiError("Avatar must be a string URL", 400);
+            }
+        }
+        const user = await user_model_1.default.findById(req.user.userId);
+        if (!user) {
+            throw new errorHandler_1.ApiError("User not found", 404);
+        }
+        if (user.role !== "admin") {
+            throw new errorHandler_1.ApiError("Forbidden: Admin access required", 403);
+        }
+        if (name !== undefined)
+            user.name = name.trim();
+        if (avatar !== undefined)
+            user.avatar = avatar.trim();
+        await user.save();
+        const updatedUser = await user_model_1.default.findById(user._id).select("-password").lean();
+        apiResponse_1.default.success(res, updatedUser, "Admin profile updated successfully");
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/**
+ * PATCH /api/dashboard/admin/profile/password
+ * Allows admin to change their password.
+ */
+async function changeAdminPassword(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        if (!req.user || !req.user.userId) {
+            throw new errorHandler_1.ApiError("Unauthorized", 401);
+        }
+        const { currentPassword, newPassword, confirmPassword } = req.body;
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            throw new errorHandler_1.ApiError("All password fields are required", 400);
+        }
+        if (newPassword.length < 8) {
+            throw new errorHandler_1.ApiError("New password must be at least 8 characters long", 400);
+        }
+        if (newPassword !== confirmPassword) {
+            throw new errorHandler_1.ApiError("New password and confirmation do not match", 400);
+        }
+        const user = await user_model_1.default.findById(req.user.userId);
+        if (!user) {
+            throw new errorHandler_1.ApiError("User not found", 404);
+        }
+        if (user.role !== "admin") {
+            throw new errorHandler_1.ApiError("Forbidden: Admin access required", 403);
+        }
+        const isMatch = await bcrypt_1.default.compare(currentPassword, user.password);
+        if (!isMatch) {
+            throw new errorHandler_1.ApiError("Incorrect current password", 400);
+        }
+        user.password = await bcrypt_1.default.hash(newPassword, 10);
+        await user.save();
+        apiResponse_1.default.success(res, null, "Password changed successfully");
     }
     catch (error) {
         next(error);

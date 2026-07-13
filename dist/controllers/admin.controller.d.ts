@@ -95,4 +95,19 @@ export declare function getAdminPaymentById(req: Request, res: Response, next: N
  * Returns overview stats, revenue trends, order stats, top selling games/packages, and seller performance.
  */
 export declare function getAdminReports(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * GET /api/dashboard/admin/profile
+ * Returns the currently authenticated admin's profile.
+ */
+export declare function getAdminProfile(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * PATCH /api/dashboard/admin/profile
+ * Allows admin to update their name and avatar.
+ */
+export declare function updateAdminProfile(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * PATCH /api/dashboard/admin/profile/password
+ * Allows admin to change their password.
+ */
+export declare function changeAdminPassword(req: Request, res: Response, next: NextFunction): Promise<void>;
 //# sourceMappingURL=admin.controller.d.ts.map
