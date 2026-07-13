@@ -250,3 +250,63 @@ export async function cancelOrder(
     next(error);
   }
 }
+
+const ALLOWED_ORDER_STATUSES = ["pending", "processing", "completed", "cancelled"] as const;
+const ALLOWED_PAYMENT_STATUSES = ["pending", "paid", "failed"] as const;
+
+/**
+ * PATCH /api/orders/:id/status
+ * Updates the orderStatus and/or paymentStatus of any order.
+ * Restricted to admin role users only.
+ */
+export async function updateOrderStatus(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
+
+    const { id } = req.params;
+    const { orderStatus, paymentStatus } = req.body;
+
+    // Validate ObjectId structure
+    if (typeof id !== "string" || !mongoose.Types.ObjectId.isValid(id)) {
+      throw new ApiError("Order not found", 404);
+    }
+
+    // Validation of incoming fields
+    if (orderStatus !== undefined && !ALLOWED_ORDER_STATUSES.includes(orderStatus)) {
+      throw new ApiError(
+        `Invalid order status. Allowed values: ${ALLOWED_ORDER_STATUSES.join(", ")}`,
+        400
+      );
+    }
+
+    if (paymentStatus !== undefined && !ALLOWED_PAYMENT_STATUSES.includes(paymentStatus)) {
+      throw new ApiError(
+        `Invalid payment status. Allowed values: ${ALLOWED_PAYMENT_STATUSES.join(", ")}`,
+        400
+      );
+    }
+
+    const order = await Order.findById(id);
+    if (!order) {
+      throw new ApiError("Order not found", 404);
+    }
+
+    // Apply updates if they were provided
+    if (orderStatus !== undefined) {
+      order.orderStatus = orderStatus;
+    }
+    if (paymentStatus !== undefined) {
+      order.paymentStatus = paymentStatus;
+    }
+
+    await order.save();
+
+    apiResponse.success(res, order, "Order status updated successfully", 200);
+  } catch (error) {
+    next(error);
+  }
+}

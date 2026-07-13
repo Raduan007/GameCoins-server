@@ -7,6 +7,7 @@ exports.createOrder = createOrder;
 exports.getOrders = getOrders;
 exports.getOrderById = getOrderById;
 exports.cancelOrder = cancelOrder;
+exports.updateOrderStatus = updateOrderStatus;
 const mongoose_1 = __importDefault(require("mongoose"));
 const db_1 = __importDefault(require("../config/db"));
 const apiResponse_1 = __importDefault(require("../utils/apiResponse"));
@@ -189,6 +190,47 @@ async function cancelOrder(req, res, next) {
         order.orderStatus = "cancelled";
         await order.save();
         apiResponse_1.default.success(res, order, "Order cancelled successfully", 200);
+    }
+    catch (error) {
+        next(error);
+    }
+}
+const ALLOWED_ORDER_STATUSES = ["pending", "processing", "completed", "cancelled"];
+const ALLOWED_PAYMENT_STATUSES = ["pending", "paid", "failed"];
+/**
+ * PATCH /api/orders/:id/status
+ * Updates the orderStatus and/or paymentStatus of any order.
+ * Restricted to admin role users only.
+ */
+async function updateOrderStatus(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const { id } = req.params;
+        const { orderStatus, paymentStatus } = req.body;
+        // Validate ObjectId structure
+        if (typeof id !== "string" || !mongoose_1.default.Types.ObjectId.isValid(id)) {
+            throw new errorHandler_1.ApiError("Order not found", 404);
+        }
+        // Validation of incoming fields
+        if (orderStatus !== undefined && !ALLOWED_ORDER_STATUSES.includes(orderStatus)) {
+            throw new errorHandler_1.ApiError(`Invalid order status. Allowed values: ${ALLOWED_ORDER_STATUSES.join(", ")}`, 400);
+        }
+        if (paymentStatus !== undefined && !ALLOWED_PAYMENT_STATUSES.includes(paymentStatus)) {
+            throw new errorHandler_1.ApiError(`Invalid payment status. Allowed values: ${ALLOWED_PAYMENT_STATUSES.join(", ")}`, 400);
+        }
+        const order = await order_model_1.default.findById(id);
+        if (!order) {
+            throw new errorHandler_1.ApiError("Order not found", 404);
+        }
+        // Apply updates if they were provided
+        if (orderStatus !== undefined) {
+            order.orderStatus = orderStatus;
+        }
+        if (paymentStatus !== undefined) {
+            order.paymentStatus = paymentStatus;
+        }
+        await order.save();
+        apiResponse_1.default.success(res, order, "Order status updated successfully", 200);
     }
     catch (error) {
         next(error);

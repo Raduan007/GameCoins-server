@@ -23,4 +23,10 @@ export declare function getOrderById(req: Request, res: Response, next: NextFunc
  * Enforces ownership or admin role authorization.
  */
 export declare function cancelOrder(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * PATCH /api/orders/:id/status
+ * Updates the orderStatus and/or paymentStatus of any order.
+ * Restricted to admin role users only.
+ */
+export declare function updateOrderStatus(req: Request, res: Response, next: NextFunction): Promise<void>;
 //# sourceMappingURL=order.controller.d.ts.map
