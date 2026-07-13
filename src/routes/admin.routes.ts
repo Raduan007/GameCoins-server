@@ -20,6 +20,7 @@ import {
   updateAdminOrderStatus,
   getAdminPayments,
   getAdminPaymentById,
+  getAdminReports,
 } from "../controllers/admin.controller";
 import { authenticate, authorizeRoles } from "../middleware/auth.middleware";
 
@@ -29,6 +30,7 @@ const router = Router();
 router.use(authenticate, authorizeRoles("admin"));
 
 router.get("/overview", getAdminOverview);
+router.get("/reports", getAdminReports);
 
 // User Management
 router.get("/users", getAllUsers);

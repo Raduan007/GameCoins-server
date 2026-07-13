@@ -23,6 +23,7 @@ exports.getAdminOrderById = getAdminOrderById;
 exports.updateAdminOrderStatus = updateAdminOrderStatus;
 exports.getAdminPayments = getAdminPayments;
 exports.getAdminPaymentById = getAdminPaymentById;
+exports.getAdminReports = getAdminReports;
 const mongoose_1 = __importDefault(require("mongoose"));
 const db_1 = __importDefault(require("../config/db"));
 const apiResponse_1 = __importDefault(require("../utils/apiResponse"));
@@ -777,10 +778,277 @@ async function getAdminPaymentById(req, res, next) {
                 { path: "user", select: "name email role" },
             ],
         });
-        if (!payment) {
-            throw new errorHandler_1.ApiError("Payment not found", 404);
-        }
         apiResponse_1.default.success(res, { payment }, "Payment details retrieved successfully");
+    }
+    catch (error) {
+        next(error);
+    }
+}
+// ─────────────────────────────────────────────────────────────
+// REPORTS & ANALYTICS
+// ─────────────────────────────────────────────────────────────
+/**
+ * GET /api/dashboard/admin/reports
+ * Returns overview stats, revenue trends, order stats, top selling games/packages, and seller performance.
+ */
+async function getAdminReports(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const period = req.query.period || "30days";
+        const startDate = new Date();
+        if (period === "7days") {
+            startDate.setDate(startDate.getDate() - 7);
+        }
+        else if (period === "30days") {
+            startDate.setDate(startDate.getDate() - 30);
+        }
+        else if (period === "6months") {
+            startDate.setMonth(startDate.getMonth() - 6);
+        }
+        else if (period === "1year") {
+            startDate.setFullYear(startDate.getFullYear() - 1);
+        }
+        else {
+            startDate.setDate(startDate.getDate() - 30);
+        }
+        // 1. Overview Statistics
+        const [totalUsers, totalSellers, totalGames, totalPackages] = await Promise.all([
+            user_model_1.default.countDocuments(),
+            user_model_1.default.countDocuments({ role: "seller" }),
+            game_model_1.default.countDocuments(),
+            package_model_1.default.countDocuments(),
+        ]);
+        const orderOverview = await order_model_1.default.aggregate([
+            {
+                $match: {
+                    createdAt: { $gte: startDate },
+                },
+            },
+            {
+                $group: {
+                    _id: null,
+                    totalOrders: { $sum: 1 },
+                    totalRevenue: {
+                        $sum: {
+                            $cond: [{ $eq: ["$paymentStatus", "paid"] }, "$totalPrice", 0],
+                        },
+                    },
+                    completedOrders: {
+                        $sum: {
+                            $cond: [{ $eq: ["$orderStatus", "completed"] }, 1, 0],
+                        },
+                    },
+                    pendingOrders: {
+                        $sum: {
+                            $cond: [{ $eq: ["$orderStatus", "pending"] }, 1, 0],
+                        },
+                    },
+                },
+            },
+        ]);
+        const overview = {
+            totalRevenue: orderOverview[0]?.totalRevenue || 0,
+            totalOrders: orderOverview[0]?.totalOrders || 0,
+            totalCompletedOrders: orderOverview[0]?.completedOrders || 0,
+            totalPendingOrders: orderOverview[0]?.pendingOrders || 0,
+            totalUsers,
+            totalSellers,
+            totalGames,
+            totalPackages,
+        };
+        // 2. Revenue Analytics
+        const [dailyRevenueRaw, weeklyRevenueRaw, monthlyRevenueRaw, yearlyRevenueRaw] = await Promise.all([
+            order_model_1.default.aggregate([
+                {
+                    $match: {
+                        paymentStatus: "paid",
+                        createdAt: { $gte: startDate },
+                    },
+                },
+                {
+                    $group: {
+                        _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+                        revenue: { $sum: "$totalPrice" },
+                    },
+                },
+                { $sort: { _id: 1 } },
+            ]),
+            order_model_1.default.aggregate([
+                {
+                    $match: {
+                        paymentStatus: "paid",
+                        createdAt: { $gte: startDate },
+                    },
+                },
+                {
+                    $group: {
+                        _id: {
+                            $concat: [
+                                { $dateToString: { format: "%Y", date: "$createdAt" } },
+                                "-W",
+                                { $toString: { $isoWeek: "$createdAt" } },
+                            ],
+                        },
+                        revenue: { $sum: "$totalPrice" },
+                    },
+                },
+                { $sort: { _id: 1 } },
+            ]),
+            order_model_1.default.aggregate([
+                {
+                    $match: {
+                        paymentStatus: "paid",
+                        createdAt: { $gte: startDate },
+                    },
+                },
+                {
+                    $group: {
+                        _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
+                        revenue: { $sum: "$totalPrice" },
+                    },
+                },
+                { $sort: { _id: 1 } },
+            ]),
+            order_model_1.default.aggregate([
+                {
+                    $match: {
+                        paymentStatus: "paid",
+                        createdAt: { $gte: startDate },
+                    },
+                },
+                {
+                    $group: {
+                        _id: { $dateToString: { format: "%Y", date: "$createdAt" } },
+                        revenue: { $sum: "$totalPrice" },
+                    },
+                },
+                { $sort: { _id: 1 } },
+            ]),
+        ]);
+        const revenue = {
+            daily: dailyRevenueRaw.map((item) => ({ date: item._id, revenue: item.revenue })),
+            weekly: weeklyRevenueRaw.map((item) => ({ week: item._id, revenue: item.revenue })),
+            monthly: monthlyRevenueRaw.map((item) => ({ month: item._id, revenue: item.revenue })),
+            yearly: yearlyRevenueRaw.map((item) => ({ year: item._id, revenue: item.revenue })),
+        };
+        // 3. Order Analytics (Orders by Status)
+        const orderStatusRaw = await order_model_1.default.aggregate([
+            {
+                $match: {
+                    createdAt: { $gte: startDate },
+                },
+            },
+            {
+                $group: {
+                    _id: "$orderStatus",
+                    count: { $sum: 1 },
+                },
+            },
+        ]);
+        const orderStatusMap = {
+            pending: 0,
+            processing: 0,
+            completed: 0,
+            cancelled: 0,
+        };
+        orderStatusRaw.forEach((item) => {
+            if (item._id in orderStatusMap) {
+                orderStatusMap[item._id] = item.count;
+            }
+        });
+        const orderStatus = Object.keys(orderStatusMap).map((status) => ({
+            status,
+            count: orderStatusMap[status],
+        }));
+        // 4. Sales Analytics (Top Selling Games & Packages)
+        const [topGamesRaw, topPackagesRaw] = await Promise.all([
+            order_model_1.default.aggregate([
+                {
+                    $match: {
+                        createdAt: { $gte: startDate },
+                        paymentStatus: "paid",
+                    },
+                },
+                {
+                    $group: {
+                        _id: "$game",
+                        ordersCount: { $sum: 1 },
+                        revenue: { $sum: "$totalPrice" },
+                    },
+                },
+                { $sort: { revenue: -1 } },
+                { $limit: 10 },
+                {
+                    $lookup: {
+                        from: "games",
+                        localField: "_id",
+                        foreignField: "_id",
+                        as: "gameDoc",
+                    },
+                },
+                { $unwind: { path: "$gameDoc", preserveNullAndEmptyArrays: true } },
+            ]),
+            order_model_1.default.aggregate([
+                {
+                    $match: {
+                        createdAt: { $gte: startDate },
+                        paymentStatus: "paid",
+                    },
+                },
+                {
+                    $group: {
+                        _id: "$package",
+                        gameId: { $first: "$game" },
+                        numberSold: { $sum: "$quantity" },
+                        revenue: { $sum: "$totalPrice" },
+                    },
+                },
+                { $sort: { revenue: -1 } },
+                { $limit: 10 },
+                {
+                    $lookup: {
+                        from: "packages",
+                        localField: "_id",
+                        foreignField: "_id",
+                        as: "packageDoc",
+                    },
+                },
+                { $unwind: { path: "$packageDoc", preserveNullAndEmptyArrays: true } },
+                {
+                    $lookup: {
+                        from: "games",
+                        localField: "gameId",
+                        foreignField: "_id",
+                        as: "gameDoc",
+                    },
+                },
+                { $unwind: { path: "$gameDoc", preserveNullAndEmptyArrays: true } },
+            ]),
+        ]);
+        const sales = {
+            topSellingGames: topGamesRaw.map((item) => ({
+                gameId: item._id,
+                name: item.gameDoc?.name || "Unknown Game",
+                orders: item.ordersCount,
+                revenue: item.revenue,
+            })),
+            topSellingPackages: topPackagesRaw.map((item) => ({
+                packageId: item._id,
+                name: item.packageDoc?.name || "Unknown Package",
+                gameName: item.gameDoc?.name || "Unknown Game",
+                numberSold: item.numberSold,
+                revenue: item.revenue,
+            })),
+        };
+        // 5. Seller Performance
+        const sellers = await user_model_1.default.find({ role: "seller" }).select("name");
+        const sellerPerformance = sellers.map((seller) => ({
+            sellerName: seller.name,
+            totalProducts: 0,
+            totalOrders: 0,
+            revenueGenerated: 0,
+        }));
+        apiResponse_1.default.success(res, { overview, revenue, orderStatus, sales, sellerPerformance }, "Admin reports retrieved successfully");
     }
     catch (error) {
         next(error);

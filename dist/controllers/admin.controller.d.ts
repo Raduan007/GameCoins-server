@@ -90,4 +90,9 @@ export declare function getAdminPayments(req: Request, res: Response, next: Next
  * Returns full payment details with all populated references.
  */
 export declare function getAdminPaymentById(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * GET /api/dashboard/admin/reports
+ * Returns overview stats, revenue trends, order stats, top selling games/packages, and seller performance.
+ */
+export declare function getAdminReports(req: Request, res: Response, next: NextFunction): Promise<void>;
 //# sourceMappingURL=admin.controller.d.ts.map

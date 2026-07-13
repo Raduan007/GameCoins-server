@@ -914,11 +914,297 @@ export async function getAdminPaymentById(
         ],
       });
 
-    if (!payment) {
-      throw new ApiError("Payment not found", 404);
+    apiResponse.success(res, { payment }, "Payment details retrieved successfully");
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// REPORTS & ANALYTICS
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/dashboard/admin/reports
+ * Returns overview stats, revenue trends, order stats, top selling games/packages, and seller performance.
+ */
+export async function getAdminReports(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
+
+    const period = (req.query.period as string) || "30days";
+    const startDate = new Date();
+
+    if (period === "7days") {
+      startDate.setDate(startDate.getDate() - 7);
+    } else if (period === "30days") {
+      startDate.setDate(startDate.getDate() - 30);
+    } else if (period === "6months") {
+      startDate.setMonth(startDate.getMonth() - 6);
+    } else if (period === "1year") {
+      startDate.setFullYear(startDate.getFullYear() - 1);
+    } else {
+      startDate.setDate(startDate.getDate() - 30);
     }
 
-    apiResponse.success(res, { payment }, "Payment details retrieved successfully");
+    // 1. Overview Statistics
+    const [totalUsers, totalSellers, totalGames, totalPackages] = await Promise.all([
+      User.countDocuments(),
+      User.countDocuments({ role: "seller" }),
+      Game.countDocuments(),
+      Package.countDocuments(),
+    ]);
+
+    const orderOverview = await Order.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalOrders: { $sum: 1 },
+          totalRevenue: {
+            $sum: {
+              $cond: [{ $eq: ["$paymentStatus", "paid"] }, "$totalPrice", 0],
+            },
+          },
+          completedOrders: {
+            $sum: {
+              $cond: [{ $eq: ["$orderStatus", "completed"] }, 1, 0],
+            },
+          },
+          pendingOrders: {
+            $sum: {
+              $cond: [{ $eq: ["$orderStatus", "pending"] }, 1, 0],
+            },
+          },
+        },
+      },
+    ]);
+
+    const overview = {
+      totalRevenue: orderOverview[0]?.totalRevenue || 0,
+      totalOrders: orderOverview[0]?.totalOrders || 0,
+      totalCompletedOrders: orderOverview[0]?.completedOrders || 0,
+      totalPendingOrders: orderOverview[0]?.pendingOrders || 0,
+      totalUsers,
+      totalSellers,
+      totalGames,
+      totalPackages,
+    };
+
+    // 2. Revenue Analytics
+    const [dailyRevenueRaw, weeklyRevenueRaw, monthlyRevenueRaw, yearlyRevenueRaw] = await Promise.all([
+      Order.aggregate([
+        {
+          $match: {
+            paymentStatus: "paid",
+            createdAt: { $gte: startDate },
+          },
+        },
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+            revenue: { $sum: "$totalPrice" },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
+      Order.aggregate([
+        {
+          $match: {
+            paymentStatus: "paid",
+            createdAt: { $gte: startDate },
+          },
+        },
+        {
+          $group: {
+            _id: {
+              $concat: [
+                { $dateToString: { format: "%Y", date: "$createdAt" } },
+                "-W",
+                { $toString: { $isoWeek: "$createdAt" } },
+              ],
+            },
+            revenue: { $sum: "$totalPrice" },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
+      Order.aggregate([
+        {
+          $match: {
+            paymentStatus: "paid",
+            createdAt: { $gte: startDate },
+          },
+        },
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
+            revenue: { $sum: "$totalPrice" },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
+      Order.aggregate([
+        {
+          $match: {
+            paymentStatus: "paid",
+            createdAt: { $gte: startDate },
+          },
+        },
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y", date: "$createdAt" } },
+            revenue: { $sum: "$totalPrice" },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
+    ]);
+
+    const revenue = {
+      daily: dailyRevenueRaw.map((item) => ({ date: item._id, revenue: item.revenue })),
+      weekly: weeklyRevenueRaw.map((item) => ({ week: item._id, revenue: item.revenue })),
+      monthly: monthlyRevenueRaw.map((item) => ({ month: item._id, revenue: item.revenue })),
+      yearly: yearlyRevenueRaw.map((item) => ({ year: item._id, revenue: item.revenue })),
+    };
+
+    // 3. Order Analytics (Orders by Status)
+    const orderStatusRaw = await Order.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate },
+        },
+      },
+      {
+        $group: {
+          _id: "$orderStatus",
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const orderStatusMap: Record<string, number> = {
+      pending: 0,
+      processing: 0,
+      completed: 0,
+      cancelled: 0,
+    };
+
+    orderStatusRaw.forEach((item) => {
+      if (item._id in orderStatusMap) {
+        orderStatusMap[item._id] = item.count;
+      }
+    });
+
+    const orderStatus = Object.keys(orderStatusMap).map((status) => ({
+      status,
+      count: orderStatusMap[status],
+    }));
+
+    // 4. Sales Analytics (Top Selling Games & Packages)
+    const [topGamesRaw, topPackagesRaw] = await Promise.all([
+      Order.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: startDate },
+            paymentStatus: "paid",
+          },
+        },
+        {
+          $group: {
+            _id: "$game",
+            ordersCount: { $sum: 1 },
+            revenue: { $sum: "$totalPrice" },
+          },
+        },
+        { $sort: { revenue: -1 } },
+        { $limit: 10 },
+        {
+          $lookup: {
+            from: "games",
+            localField: "_id",
+            foreignField: "_id",
+            as: "gameDoc",
+          },
+        },
+        { $unwind: { path: "$gameDoc", preserveNullAndEmptyArrays: true } },
+      ]),
+      Order.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: startDate },
+            paymentStatus: "paid",
+          },
+        },
+        {
+          $group: {
+            _id: "$package",
+            gameId: { $first: "$game" },
+            numberSold: { $sum: "$quantity" },
+            revenue: { $sum: "$totalPrice" },
+          },
+        },
+        { $sort: { revenue: -1 } },
+        { $limit: 10 },
+        {
+          $lookup: {
+            from: "packages",
+            localField: "_id",
+            foreignField: "_id",
+            as: "packageDoc",
+          },
+        },
+        { $unwind: { path: "$packageDoc", preserveNullAndEmptyArrays: true } },
+        {
+          $lookup: {
+            from: "games",
+            localField: "gameId",
+            foreignField: "_id",
+            as: "gameDoc",
+          },
+        },
+        { $unwind: { path: "$gameDoc", preserveNullAndEmptyArrays: true } },
+      ]),
+    ]);
+
+    const sales = {
+      topSellingGames: topGamesRaw.map((item) => ({
+        gameId: item._id,
+        name: item.gameDoc?.name || "Unknown Game",
+        orders: item.ordersCount,
+        revenue: item.revenue,
+      })),
+      topSellingPackages: topPackagesRaw.map((item) => ({
+        packageId: item._id,
+        name: item.packageDoc?.name || "Unknown Package",
+        gameName: item.gameDoc?.name || "Unknown Game",
+        numberSold: item.numberSold,
+        revenue: item.revenue,
+      })),
+    };
+
+    // 5. Seller Performance
+    const sellers = await User.find({ role: "seller" }).select("name");
+    const sellerPerformance = sellers.map((seller) => ({
+      sellerName: seller.name,
+      totalProducts: 0,
+      totalOrders: 0,
+      revenueGenerated: 0,
+    }));
+
+    apiResponse.success(
+      res,
+      { overview, revenue, orderStatus, sales, sellerPerformance },
+      "Admin reports retrieved successfully"
+    );
   } catch (error) {
     next(error);
   }

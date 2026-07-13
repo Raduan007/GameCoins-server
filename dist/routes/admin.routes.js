@@ -7,6 +7,7 @@ const router = (0, express_1.Router)();
 // Secure all admin routes with authentication and role verification
 router.use(auth_middleware_1.authenticate, (0, auth_middleware_1.authorizeRoles)("admin"));
 router.get("/overview", admin_controller_1.getAdminOverview);
+router.get("/reports", admin_controller_1.getAdminReports);
 // User Management
 router.get("/users", admin_controller_1.getAllUsers);
 router.get("/users/:id", admin_controller_1.getUserById);
