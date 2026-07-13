@@ -5,6 +5,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createPayment = createPayment;
 exports.getPayments = getPayments;
+exports.getPaymentById = getPaymentById;
+exports.updatePaymentStatus = updatePaymentStatus;
 const mongoose_1 = __importDefault(require("mongoose"));
 const db_1 = __importDefault(require("../config/db"));
 const apiResponse_1 = __importDefault(require("../utils/apiResponse"));
@@ -109,6 +111,103 @@ async function getPayments(req, res, next) {
             return;
         }
         apiResponse_1.default.success(res, payments, "Payments fetched successfully", 200);
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/**
+ * GET /api/payments/:id
+ * Fetches the details of a specific payment.
+ * Populates user (name, email), order, and nested game and package details.
+ * Enforces ownership or admin role authorization.
+ */
+async function getPaymentById(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const { id } = req.params;
+        const userId = req.user?.userId;
+        const userRole = req.user?.role;
+        if (!userId) {
+            throw new errorHandler_1.ApiError("Unauthorized", 401);
+        }
+        // Validate ObjectId structure
+        if (typeof id !== "string" || !mongoose_1.default.Types.ObjectId.isValid(id)) {
+            throw new errorHandler_1.ApiError("Payment not found", 404);
+        }
+        const payment = await payment_model_1.default.findById(id)
+            .populate("user", "name email")
+            .populate({
+            path: "order",
+            select: "playerId playerName orderStatus paymentStatus game package",
+            populate: [
+                {
+                    path: "game",
+                },
+                {
+                    path: "package",
+                },
+            ],
+        });
+        if (!payment) {
+            throw new errorHandler_1.ApiError("Payment not found", 404);
+        }
+        // Check ownership or admin status
+        const paymentUserId = typeof payment.user === "object" && payment.user !== null && "_id" in payment.user
+            ? payment.user._id.toString()
+            : payment.user.toString();
+        if (paymentUserId !== userId && userRole !== "admin") {
+            throw new errorHandler_1.ApiError("Forbidden", 403);
+        }
+        apiResponse_1.default.success(res, payment, "Payment fetched successfully", 200);
+    }
+    catch (error) {
+        next(error);
+    }
+}
+const ALLOWED_PAYMENT_STATUSES = ["pending", "paid", "failed"];
+/**
+ * PATCH /api/payments/:id/status
+ * Updates payment status (Admin Only).
+ * If status becomes 'paid', updates the related order status to 'completed'.
+ */
+async function updatePaymentStatus(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const { id } = req.params;
+        const { paymentStatus } = req.body;
+        const userRole = req.user?.role;
+        // 1. Only admin users can update payment status
+        if (userRole !== "admin") {
+            throw new errorHandler_1.ApiError("Forbidden", 403);
+        }
+        // 2. Validate payment ID
+        if (typeof id !== "string" || !mongoose_1.default.Types.ObjectId.isValid(id)) {
+            throw new errorHandler_1.ApiError("Payment not found", 404);
+        }
+        // 3. Validate status value
+        if (paymentStatus === undefined || !ALLOWED_PAYMENT_STATUSES.includes(paymentStatus)) {
+            throw new errorHandler_1.ApiError("Invalid payment status", 400);
+        }
+        // 4. Find payment
+        const payment = await payment_model_1.default.findById(id);
+        if (!payment) {
+            throw new errorHandler_1.ApiError("Payment not found", 404);
+        }
+        // 5. Update paymentStatus
+        payment.paymentStatus = paymentStatus;
+        await payment.save();
+        // 6. When paymentStatus becomes "paid", update related order
+        if (paymentStatus === "paid") {
+            const order = await order_model_1.default.findById(payment.order);
+            if (!order) {
+                throw new errorHandler_1.ApiError("Related order not found", 404);
+            }
+            order.orderStatus = "completed";
+            order.paymentStatus = "paid";
+            await order.save();
+        }
+        apiResponse_1.default.success(res, payment, "Payment status updated successfully", 200);
     }
     catch (error) {
         next(error);
