@@ -83,3 +83,39 @@ export async function getDashboardOverview(
     next(error);
   }
 }
+
+/**
+ * GET /api/dashboard/orders
+ * Returns all orders belonging to the logged-in user.
+ * Populates game and package details.
+ * Sorted by newest first.
+ */
+export async function getBuyerOrders(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
+
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new ApiError("Unauthorized", 401);
+    }
+
+    const orders = await Order.find({ user: userId })
+      .populate("game")
+      .populate("package")
+      .sort({ createdAt: -1 });
+
+    if (orders.length === 0) {
+      apiResponse.success(res, [], "No orders found", 200);
+      return;
+    }
+
+    apiResponse.success(res, orders, "Orders fetched successfully", 200);
+  } catch (error) {
+    next(error);
+  }
+}
+

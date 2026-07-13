@@ -88,10 +88,16 @@ async function main() {
   let game = await Game.findOne({ isActive: true });
   if (!game) {
     game = await Game.create({
-      title: "Dashboard Test Game",
-      image: "https://example.com/game.png",
+      name: "Dashboard Test Game",
+      slug: "dashboard-test-game",
+      shortDescription: "Test short description",
+      fullDescription: "Test full description",
+      category: "Action",
+      platform: "PC",
+      publisher: "Test Publisher",
+      logo: "https://example.com/logo.png",
+      banner: "https://example.com/banner.png",
       isActive: true,
-      description: "Test description",
     });
   }
 
@@ -100,6 +106,7 @@ async function main() {
     pkg = await Package.create({
       game: game._id,
       name: "Dashboard Test Package",
+      amount: 100,
       price: 15,
       isActive: true,
     });

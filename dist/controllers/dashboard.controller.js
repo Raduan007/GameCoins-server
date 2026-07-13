@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getDashboardOverview = getDashboardOverview;
+exports.getBuyerOrders = getBuyerOrders;
 const mongoose_1 = __importDefault(require("mongoose"));
 const db_1 = __importDefault(require("../config/db"));
 const apiResponse_1 = __importDefault(require("../utils/apiResponse"));
@@ -74,6 +75,33 @@ async function getDashboardOverview(req, res, next) {
             completedOrders: summary.completedOrders,
         };
         apiResponse_1.default.success(res, data, "Dashboard summary fetched successfully", 200);
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/**
+ * GET /api/dashboard/orders
+ * Returns all orders belonging to the logged-in user.
+ * Populates game and package details.
+ * Sorted by newest first.
+ */
+async function getBuyerOrders(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const userId = req.user?.userId;
+        if (!userId) {
+            throw new errorHandler_1.ApiError("Unauthorized", 401);
+        }
+        const orders = await order_model_1.default.find({ user: userId })
+            .populate("game")
+            .populate("package")
+            .sort({ createdAt: -1 });
+        if (orders.length === 0) {
+            apiResponse_1.default.success(res, [], "No orders found", 200);
+            return;
+        }
+        apiResponse_1.default.success(res, orders, "Orders fetched successfully", 200);
     }
     catch (error) {
         next(error);
