@@ -49,20 +49,30 @@ async function runVerification() {
         const userToken = jsonwebtoken_1.default.sign({ userId: testUser._id.toString(), email: testUser.email, role: testUser.role }, jwtSecret, { expiresIn: "1h" });
         const adminToken = jsonwebtoken_1.default.sign({ userId: testAdmin._id.toString(), email: testAdmin.email, role: testAdmin.role }, jwtSecret, { expiresIn: "1h" });
         // Get or create a real game and package for the order
+        // Clean up stale test data from previous runs
+        await order_model_1.default.deleteMany({ playerId: "verify-player-001" }).catch(() => { });
+        await package_model_1.default.deleteMany({ name: "Test Order Package" }).catch(() => { });
+        await game_model_1.default.deleteOne({ $or: [{ slug: "test-order-game" }, { name: "Order Test Game" }] }).catch(() => { });
         let testGame = await game_model_1.default.findOne({ slug: "test-order-game" });
         if (!testGame) {
             testGame = await game_model_1.default.create({
                 name: "Order Test Game",
                 slug: "test-order-game",
                 shortDescription: "Test game for order verification",
-                fullDescription: "Full desc",
+                fullDescription: "Full description for order verification test game.",
                 category: "Test",
                 platform: "PC",
                 publisher: "Test Publisher",
+                logo: "https://placehold.co/64x64/png",
+                banner: "https://placehold.co/800x300/png",
                 isActive: true,
             });
         }
         let testPackage = await package_model_1.default.findOne({ game: testGame._id, name: "Test Order Package" });
+        if (testPackage) {
+            await package_model_1.default.deleteOne({ _id: testPackage._id }).catch(() => { });
+            testPackage = null;
+        }
         if (!testPackage) {
             testPackage = await package_model_1.default.create({
                 name: "Test Order Package",

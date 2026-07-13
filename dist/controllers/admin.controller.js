@@ -566,11 +566,11 @@ async function getAdminOrders(req, res, next) {
             const searchRegex = new RegExp(searchTerm, "i");
             const pipeline = [
                 { $lookup: { from: "users", localField: "user", foreignField: "_id", as: "userDoc" } },
-                { $unwind: { path: "$userDoc", preserveNullAndEmpty: true } },
+                { $unwind: { path: "$userDoc", preserveNullAndEmptyArrays: true } },
                 { $lookup: { from: "games", localField: "game", foreignField: "_id", as: "gameDoc" } },
-                { $unwind: { path: "$gameDoc", preserveNullAndEmpty: true } },
+                { $unwind: { path: "$gameDoc", preserveNullAndEmptyArrays: true } },
                 { $lookup: { from: "packages", localField: "package", foreignField: "_id", as: "packageDoc" } },
-                { $unwind: { path: "$packageDoc", preserveNullAndEmpty: true } },
+                { $unwind: { path: "$packageDoc", preserveNullAndEmptyArrays: true } },
                 {
                     $match: {
                         ...baseQuery,

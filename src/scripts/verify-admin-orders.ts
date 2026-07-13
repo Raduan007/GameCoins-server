@@ -63,21 +63,32 @@ async function runVerification() {
     );
 
     // Get or create a real game and package for the order
+    // Clean up stale test data from previous runs
+    await Order.deleteMany({ playerId: "verify-player-001" }).catch(() => {});
+    await Package.deleteMany({ name: "Test Order Package" }).catch(() => {});
+    await Game.deleteOne({ $or: [{ slug: "test-order-game" }, { name: "Order Test Game" }] }).catch(() => {});
+
     let testGame = await Game.findOne({ slug: "test-order-game" });
     if (!testGame) {
       testGame = await Game.create({
         name: "Order Test Game",
         slug: "test-order-game",
         shortDescription: "Test game for order verification",
-        fullDescription: "Full desc",
+        fullDescription: "Full description for order verification test game.",
         category: "Test",
         platform: "PC",
         publisher: "Test Publisher",
+        logo: "https://placehold.co/64x64/png",
+        banner: "https://placehold.co/800x300/png",
         isActive: true,
       });
     }
 
     let testPackage = await Package.findOne({ game: testGame._id, name: "Test Order Package" });
+    if (testPackage) {
+      await Package.deleteOne({ _id: testPackage._id }).catch(() => {});
+      testPackage = null;
+    }
     if (!testPackage) {
       testPackage = await Package.create({
         name: "Test Order Package",
