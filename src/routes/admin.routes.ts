@@ -18,6 +18,8 @@ import {
   getAdminOrders,
   getAdminOrderById,
   updateAdminOrderStatus,
+  getAdminPayments,
+  getAdminPaymentById,
 } from "../controllers/admin.controller";
 import { authenticate, authorizeRoles } from "../middleware/auth.middleware";
 
@@ -52,5 +54,9 @@ router.delete("/packages/:id", deleteAdminPackage);
 router.get("/orders", getAdminOrders);
 router.get("/orders/:id", getAdminOrderById);
 router.patch("/orders/:id/status", updateAdminOrderStatus);
+
+// Payment Management
+router.get("/payments", getAdminPayments);
+router.get("/payments/:id", getAdminPaymentById);
 
 export default router;

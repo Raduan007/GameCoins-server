@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import mongoose from "mongoose";
 import connectDB from "../config/db";
 import apiResponse from "../utils/apiResponse";
 import { ApiError } from "../middleware/errorHandler";
@@ -774,6 +775,138 @@ export async function updateAdminOrderStatus(
       .populate("package", "name price");
 
     apiResponse.success(res, populated, "Order status updated successfully");
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// PAYMENT MANAGEMENT
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/dashboard/admin/payments
+ * Returns paginated, searchable, filtered list of all payments.
+ */
+export async function getAdminPayments(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
+
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const skip = (page - 1) * limit;
+
+    const baseQuery: any = {};
+
+    if (req.query.paymentMethod && req.query.paymentMethod !== "all") {
+      baseQuery.paymentMethod = req.query.paymentMethod;
+    }
+
+    if (req.query.paymentStatus && req.query.paymentStatus !== "all") {
+      baseQuery.paymentStatus = req.query.paymentStatus;
+    }
+
+    const searchTerm = req.query.search as string;
+    let payments: any[];
+    let total: number;
+
+    if (searchTerm) {
+      const searchRegex = new RegExp(searchTerm, "i");
+      const pipeline: any[] = [
+        { $lookup: { from: "users", localField: "user", foreignField: "_id", as: "userDoc" } },
+        { $unwind: { path: "$userDoc", preserveNullAndEmptyArrays: true } },
+        { $lookup: { from: "orders", localField: "order", foreignField: "_id", as: "orderDoc" } },
+        { $unwind: { path: "$orderDoc", preserveNullAndEmptyArrays: true } },
+        { $lookup: { from: "games", localField: "orderDoc.game", foreignField: "_id", as: "gameDoc" } },
+        { $unwind: { path: "$gameDoc", preserveNullAndEmptyArrays: true } },
+        { $lookup: { from: "packages", localField: "orderDoc.package", foreignField: "_id", as: "packageDoc" } },
+        { $unwind: { path: "$packageDoc", preserveNullAndEmptyArrays: true } },
+        {
+          $match: {
+            ...baseQuery,
+            $or: [
+              { transactionId: searchRegex },
+              { "userDoc.name": searchRegex },
+              { "userDoc.email": searchRegex },
+            ],
+          },
+        },
+        { $sort: { createdAt: -1 } },
+      ];
+
+      const [countResult, docs] = await Promise.all([
+        Payment.aggregate([...pipeline, { $count: "total" }]),
+        Payment.aggregate([...pipeline, { $skip: skip }, { $limit: limit }]),
+      ]);
+
+      total = countResult[0]?.total || 0;
+      payments = docs.map((doc: any) => ({
+        ...doc,
+        user: doc.userDoc,
+        order: doc.orderDoc ? { ...doc.orderDoc, game: doc.gameDoc, package: doc.packageDoc } : null,
+      }));
+    } else {
+      [payments, total] = await Promise.all([
+        Payment.find(baseQuery)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .populate("user", "name email role avatar")
+          .populate({
+            path: "order",
+            select: "playerId playerName orderStatus paymentStatus totalPrice game package",
+            populate: [
+              { path: "game", select: "name logo platform category" },
+              { path: "package", select: "name price amount" },
+            ],
+          }),
+        Payment.countDocuments(baseQuery),
+      ]);
+    }
+
+    apiResponse.success(
+      res,
+      { payments, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } },
+      "Payments list retrieved successfully"
+    );
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * GET /api/dashboard/admin/payments/:id
+ * Returns full payment details with all populated references.
+ */
+export async function getAdminPaymentById(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
+
+    const payment = await Payment.findById(req.params.id)
+      .populate("user", "name email role avatar createdAt isActive")
+      .populate({
+        path: "order",
+        select: "playerId playerName orderStatus paymentStatus paymentMethod unitPrice totalPrice quantity createdAt game package",
+        populate: [
+          { path: "game", select: "name logo platform category slug" },
+          { path: "package", select: "name price amount currency description" },
+          { path: "user", select: "name email role" },
+        ],
+      });
+
+    if (!payment) {
+      throw new ApiError("Payment not found", 404);
+    }
+
+    apiResponse.success(res, { payment }, "Payment details retrieved successfully");
   } catch (error) {
     next(error);
   }
