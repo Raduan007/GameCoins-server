@@ -191,3 +191,62 @@ export async function getOrderById(
     next(error);
   }
 }
+
+/**
+ * PATCH /api/orders/:id/cancel
+ * Cancels a pending or processing order.
+ * Enforces ownership or admin role authorization.
+ */
+export async function cancelOrder(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
+
+    const { id } = req.params;
+    const userId = req.user?.userId;
+    const userRole = req.user?.role;
+
+    if (!userId) {
+      throw new ApiError("Unauthorized", 401);
+    }
+
+    // Validate ObjectId structure
+    if (typeof id !== "string" || !mongoose.Types.ObjectId.isValid(id)) {
+      throw new ApiError("Order not found", 404);
+    }
+
+    const order = await Order.findById(id);
+    if (!order) {
+      throw new ApiError("Order not found", 404);
+    }
+
+    // Check ownership or admin status
+    const orderUserId = typeof order.user === "object" && order.user !== null && "_id" in order.user
+      ? (order.user as any)._id.toString()
+      : order.user.toString();
+
+    if (orderUserId !== userId && userRole !== "admin") {
+      throw new ApiError("Forbidden", 403);
+    }
+
+    // Validation rules
+    if (order.orderStatus === "cancelled") {
+      throw new ApiError("Order is already cancelled", 400);
+    }
+
+    if (order.orderStatus === "completed") {
+      throw new ApiError("Completed orders cannot be cancelled", 400);
+    }
+
+    // Cancellation
+    order.orderStatus = "cancelled";
+    await order.save();
+
+    apiResponse.success(res, order, "Order cancelled successfully", 200);
+  } catch (error) {
+    next(error);
+  }
+}

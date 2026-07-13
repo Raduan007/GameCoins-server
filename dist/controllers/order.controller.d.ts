@@ -17,4 +17,10 @@ export declare function getOrders(req: Request, res: Response, next: NextFunctio
  * Restricts access to the order owner or an admin.
  */
 export declare function getOrderById(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * PATCH /api/orders/:id/cancel
+ * Cancels a pending or processing order.
+ * Enforces ownership or admin role authorization.
+ */
+export declare function cancelOrder(req: Request, res: Response, next: NextFunction): Promise<void>;
 //# sourceMappingURL=order.controller.d.ts.map

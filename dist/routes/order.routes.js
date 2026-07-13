@@ -7,5 +7,6 @@ const router = (0, express_1.Router)();
 router.post("/", auth_middleware_1.authenticate, order_controller_1.createOrder);
 router.get("/", auth_middleware_1.authenticate, order_controller_1.getOrders);
 router.get("/:id", auth_middleware_1.authenticate, order_controller_1.getOrderById);
+router.patch("/:id/cancel", auth_middleware_1.authenticate, order_controller_1.cancelOrder);
 exports.default = router;
 //# sourceMappingURL=order.routes.js.map

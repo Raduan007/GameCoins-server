@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.createOrder = createOrder;
 exports.getOrders = getOrders;
 exports.getOrderById = getOrderById;
+exports.cancelOrder = cancelOrder;
 const mongoose_1 = __importDefault(require("mongoose"));
 const db_1 = __importDefault(require("../config/db"));
 const apiResponse_1 = __importDefault(require("../utils/apiResponse"));
@@ -143,6 +144,51 @@ async function getOrderById(req, res, next) {
             throw new errorHandler_1.ApiError("Forbidden", 403);
         }
         apiResponse_1.default.success(res, order, "Order fetched successfully", 200);
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/**
+ * PATCH /api/orders/:id/cancel
+ * Cancels a pending or processing order.
+ * Enforces ownership or admin role authorization.
+ */
+async function cancelOrder(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const { id } = req.params;
+        const userId = req.user?.userId;
+        const userRole = req.user?.role;
+        if (!userId) {
+            throw new errorHandler_1.ApiError("Unauthorized", 401);
+        }
+        // Validate ObjectId structure
+        if (typeof id !== "string" || !mongoose_1.default.Types.ObjectId.isValid(id)) {
+            throw new errorHandler_1.ApiError("Order not found", 404);
+        }
+        const order = await order_model_1.default.findById(id);
+        if (!order) {
+            throw new errorHandler_1.ApiError("Order not found", 404);
+        }
+        // Check ownership or admin status
+        const orderUserId = typeof order.user === "object" && order.user !== null && "_id" in order.user
+            ? order.user._id.toString()
+            : order.user.toString();
+        if (orderUserId !== userId && userRole !== "admin") {
+            throw new errorHandler_1.ApiError("Forbidden", 403);
+        }
+        // Validation rules
+        if (order.orderStatus === "cancelled") {
+            throw new errorHandler_1.ApiError("Order is already cancelled", 400);
+        }
+        if (order.orderStatus === "completed") {
+            throw new errorHandler_1.ApiError("Completed orders cannot be cancelled", 400);
+        }
+        // Cancellation
+        order.orderStatus = "cancelled";
+        await order.save();
+        apiResponse_1.default.success(res, order, "Order cancelled successfully", 200);
     }
     catch (error) {
         next(error);
