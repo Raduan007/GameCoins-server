@@ -5,6 +5,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createOrder = createOrder;
 exports.getOrders = getOrders;
+exports.getOrderById = getOrderById;
+const mongoose_1 = __importDefault(require("mongoose"));
 const db_1 = __importDefault(require("../config/db"));
 const apiResponse_1 = __importDefault(require("../utils/apiResponse"));
 const errorHandler_1 = require("../middleware/errorHandler");
@@ -102,6 +104,45 @@ async function getOrders(req, res, next) {
             return;
         }
         apiResponse_1.default.success(res, orders, "Orders fetched successfully", 200);
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/**
+ * GET /api/orders/:id
+ * Fetches details for a specific order.
+ * Populates user (name, email), game, and package.
+ * Restricts access to the order owner or an admin.
+ */
+async function getOrderById(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const { id } = req.params;
+        const userId = req.user?.userId;
+        const userRole = req.user?.role;
+        if (!userId) {
+            throw new errorHandler_1.ApiError("Unauthorized", 401);
+        }
+        // Validate ObjectId structure
+        if (typeof id !== "string" || !mongoose_1.default.Types.ObjectId.isValid(id)) {
+            throw new errorHandler_1.ApiError("Order not found", 404);
+        }
+        const order = await order_model_1.default.findById(id)
+            .populate("user", "name email")
+            .populate("game")
+            .populate("package");
+        if (!order) {
+            throw new errorHandler_1.ApiError("Order not found", 404);
+        }
+        // Check ownership or admin status
+        const orderUserId = typeof order.user === "object" && order.user !== null && "_id" in order.user
+            ? order.user._id.toString()
+            : order.user.toString();
+        if (orderUserId !== userId && userRole !== "admin") {
+            throw new errorHandler_1.ApiError("Forbidden", 403);
+        }
+        apiResponse_1.default.success(res, order, "Order fetched successfully", 200);
     }
     catch (error) {
         next(error);

@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import mongoose from "mongoose";
 import connectDB from "../config/db";
 import apiResponse from "../utils/apiResponse";
 import { ApiError } from "../middleware/errorHandler";
@@ -135,6 +136,57 @@ export async function getOrders(
     }
 
     apiResponse.success(res, orders, "Orders fetched successfully", 200);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * GET /api/orders/:id
+ * Fetches details for a specific order.
+ * Populates user (name, email), game, and package.
+ * Restricts access to the order owner or an admin.
+ */
+export async function getOrderById(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
+
+    const { id } = req.params;
+    const userId = req.user?.userId;
+    const userRole = req.user?.role;
+
+    if (!userId) {
+      throw new ApiError("Unauthorized", 401);
+    }
+
+    // Validate ObjectId structure
+    if (typeof id !== "string" || !mongoose.Types.ObjectId.isValid(id)) {
+      throw new ApiError("Order not found", 404);
+    }
+
+    const order = await Order.findById(id)
+      .populate("user", "name email")
+      .populate("game")
+      .populate("package");
+
+    if (!order) {
+      throw new ApiError("Order not found", 404);
+    }
+
+    // Check ownership or admin status
+    const orderUserId = typeof order.user === "object" && order.user !== null && "_id" in order.user
+      ? (order.user as any)._id.toString()
+      : order.user.toString();
+
+    if (orderUserId !== userId && userRole !== "admin") {
+      throw new ApiError("Forbidden", 403);
+    }
+
+    apiResponse.success(res, order, "Order fetched successfully", 200);
   } catch (error) {
     next(error);
   }
