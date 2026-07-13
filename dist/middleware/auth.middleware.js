@@ -48,11 +48,7 @@ function authenticate(req, res, next) {
             throw error;
         }
         if (!decoded.userId || !decoded.email || !decoded.role) {
-            apiResponse_1.default.error(res, "Unauthorized", 401);
-            return;
-        }
-        if (!decoded.userId || !decoded.email || !decoded.role) {
-            console.log("FAILED HERE: Payload missing", decoded);
+            console.log("FAILED: JWT payload missing required fields", decoded);
             apiResponse_1.default.error(res, "Unauthorized", 401);
             return;
         }

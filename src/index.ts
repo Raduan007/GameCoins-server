@@ -7,6 +7,7 @@ import authRoutes from "./routes/auth.routes";
 import orderRoutes from "./routes/order.routes";
 import paymentRoutes from "./routes/payment.routes";
 import dashboardRoutes from "./routes/dashboard.routes";
+import adminRoutes from "./routes/admin.routes";
 import { errorHandler } from "./middleware/errorHandler";
 
 import dns from "node:dns";
@@ -38,6 +39,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/dashboard/admin", adminRoutes);
 
 // Global error handler (must be last)
 app.use(errorHandler);

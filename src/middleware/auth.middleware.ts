@@ -5,7 +5,7 @@ import apiResponse from "../utils/apiResponse";
 interface DecodedToken {
   userId: string;
   email: string;
-  role: "user" | "admin";
+  role: "user" | "admin" | "seller";
 }
 
 /**
@@ -60,13 +60,10 @@ try {
   throw error;
 }
     if (!decoded.userId || !decoded.email || !decoded.role) {
+      console.log("FAILED: JWT payload missing required fields", decoded);
       apiResponse.error(res, "Unauthorized", 401);
       return;
-    }if (!decoded.userId || !decoded.email || !decoded.role) {
-  console.log("FAILED HERE: Payload missing", decoded);
-  apiResponse.error(res, "Unauthorized", 401);
-  return;
-}
+    }
     console.log("Decoded Payload:", decoded);
 
     req.user = {

@@ -12,6 +12,7 @@ const auth_routes_1 = __importDefault(require("./routes/auth.routes"));
 const order_routes_1 = __importDefault(require("./routes/order.routes"));
 const payment_routes_1 = __importDefault(require("./routes/payment.routes"));
 const dashboard_routes_1 = __importDefault(require("./routes/dashboard.routes"));
+const admin_routes_1 = __importDefault(require("./routes/admin.routes"));
 const errorHandler_1 = require("./middleware/errorHandler");
 const node_dns_1 = __importDefault(require("node:dns"));
 node_dns_1.default.setServers(["8.8.8.8", "8.8.4.4"]);
@@ -35,6 +36,7 @@ app.use("/api/auth", auth_routes_1.default);
 app.use("/api/orders", order_routes_1.default);
 app.use("/api/payments", payment_routes_1.default);
 app.use("/api/dashboard", dashboard_routes_1.default);
+app.use("/api/dashboard/admin", admin_routes_1.default);
 // Global error handler (must be last)
 app.use(errorHandler_1.errorHandler);
 app.listen(PORT, () => {

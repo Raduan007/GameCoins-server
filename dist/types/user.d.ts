@@ -3,7 +3,7 @@ export interface IUser {
     name: string;
     email: string;
     password: string;
-    role: "user" | "admin";
+    role: "user" | "admin" | "seller";
     avatar?: string;
     isActive: boolean;
     createdAt?: Date;
