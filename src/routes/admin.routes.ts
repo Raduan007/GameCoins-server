@@ -5,6 +5,16 @@ import {
   getUserById,
   updateUserRole,
   updateUserStatus,
+  getAdminGames,
+  getAdminGameById,
+  createAdminGame,
+  updateAdminGame,
+  deleteAdminGame,
+  getAdminPackages,
+  getAdminPackageById,
+  createAdminPackage,
+  updateAdminPackage,
+  deleteAdminPackage,
 } from "../controllers/admin.controller";
 import { authenticate, authorizeRoles } from "../middleware/auth.middleware";
 
@@ -14,9 +24,25 @@ const router = Router();
 router.use(authenticate, authorizeRoles("admin"));
 
 router.get("/overview", getAdminOverview);
+
+// User Management
 router.get("/users", getAllUsers);
 router.get("/users/:id", getUserById);
 router.patch("/users/:id/role", updateUserRole);
 router.patch("/users/:id/status", updateUserStatus);
+
+// Games Management
+router.get("/games", getAdminGames);
+router.get("/games/:id", getAdminGameById);
+router.post("/games", createAdminGame);
+router.patch("/games/:id", updateAdminGame);
+router.delete("/games/:id", deleteAdminGame);
+
+// Packages Management
+router.get("/packages", getAdminPackages);
+router.get("/packages/:id", getAdminPackageById);
+router.post("/packages", createAdminPackage);
+router.patch("/packages/:id", updateAdminPackage);
+router.delete("/packages/:id", deleteAdminPackage);
 
 export default router;

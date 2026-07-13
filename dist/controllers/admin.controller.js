@@ -8,6 +8,16 @@ exports.getAllUsers = getAllUsers;
 exports.getUserById = getUserById;
 exports.updateUserRole = updateUserRole;
 exports.updateUserStatus = updateUserStatus;
+exports.getAdminGames = getAdminGames;
+exports.getAdminGameById = getAdminGameById;
+exports.createAdminGame = createAdminGame;
+exports.updateAdminGame = updateAdminGame;
+exports.deleteAdminGame = deleteAdminGame;
+exports.getAdminPackages = getAdminPackages;
+exports.getAdminPackageById = getAdminPackageById;
+exports.createAdminPackage = createAdminPackage;
+exports.updateAdminPackage = updateAdminPackage;
+exports.deleteAdminPackage = deleteAdminPackage;
 const db_1 = __importDefault(require("../config/db"));
 const apiResponse_1 = __importDefault(require("../utils/apiResponse"));
 const errorHandler_1 = require("../middleware/errorHandler");
@@ -15,6 +25,8 @@ const user_model_1 = __importDefault(require("../models/user.model"));
 const order_model_1 = __importDefault(require("../models/order.model"));
 const payment_model_1 = __importDefault(require("../models/payment.model"));
 const wishlist_model_1 = __importDefault(require("../models/wishlist.model"));
+const game_model_1 = __importDefault(require("../models/game.model"));
+const package_model_1 = __importDefault(require("../models/package.model"));
 /**
  * GET /api/dashboard/admin/overview
  * Returns admin dashboard summary statistics and recent orders.
@@ -214,6 +226,310 @@ async function updateUserStatus(req, res, next) {
             throw new errorHandler_1.ApiError("User not found", 404);
         }
         apiResponse_1.default.success(res, user, "User status updated successfully");
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/* ==========================================================================
+   ADMIN GAMES MANAGEMENT
+   ========================================================================== */
+/**
+ * GET /api/dashboard/admin/games
+ * Returns a paginated, filtered list of games.
+ */
+async function getAdminGames(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+        const query = {};
+        if (req.query.search) {
+            query.name = new RegExp(req.query.search, "i");
+        }
+        if (req.query.isActive !== undefined && req.query.isActive !== "all") {
+            query.isActive = req.query.isActive === "true";
+        }
+        if (req.query.isPopular !== undefined && req.query.isPopular !== "all") {
+            query.isPopular = req.query.isPopular === "true";
+        }
+        if (req.query.isFeatured !== undefined && req.query.isFeatured !== "all") {
+            query.isFeatured = req.query.isFeatured === "true";
+        }
+        let sortOption = { createdAt: -1 };
+        if (req.query.sort === "oldest")
+            sortOption = { createdAt: 1 };
+        if (req.query.sort === "name")
+            sortOption = { name: 1 };
+        if (req.query.sort === "rating")
+            sortOption = { rating: -1 };
+        const [games, total] = await Promise.all([
+            game_model_1.default.find(query).sort(sortOption).skip(skip).limit(limit),
+            game_model_1.default.countDocuments(query),
+        ]);
+        apiResponse_1.default.success(res, {
+            games,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit),
+            },
+        }, "Games retrieved successfully");
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/**
+ * GET /api/dashboard/admin/games/:id
+ */
+async function getAdminGameById(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const game = await game_model_1.default.findById(req.params.id);
+        if (!game) {
+            throw new errorHandler_1.ApiError("Game not found", 404);
+        }
+        apiResponse_1.default.success(res, game, "Game details retrieved successfully");
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/**
+ * POST /api/dashboard/admin/games
+ */
+async function createAdminGame(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const { name, slug, shortDescription, fullDescription, category, platform, publisher, logo, banner, rating, isPopular, isFeatured, isActive, } = req.body;
+        if (!name || !name.trim()) {
+            throw new errorHandler_1.ApiError("Game name is required", 400);
+        }
+        if (!slug || !slug.trim()) {
+            throw new errorHandler_1.ApiError("Game slug is required", 400);
+        }
+        // Rating check
+        const numRating = rating !== undefined ? Number(rating) : 0;
+        if (numRating < 0 || numRating > 5) {
+            throw new errorHandler_1.ApiError("Rating must be between 0 and 5", 400);
+        }
+        // Check duplicate name
+        const dupName = await game_model_1.default.findOne({ name: name.trim() });
+        if (dupName) {
+            throw new errorHandler_1.ApiError("A game with this name already exists", 400);
+        }
+        // Check duplicate slug
+        const dupSlug = await game_model_1.default.findOne({ slug: slug.trim().toLowerCase() });
+        if (dupSlug) {
+            throw new errorHandler_1.ApiError("A game with this slug already exists", 400);
+        }
+        const game = await game_model_1.default.create({
+            name: name.trim(),
+            slug: slug.trim().toLowerCase(),
+            shortDescription: shortDescription ? shortDescription.trim() : "",
+            fullDescription: fullDescription ? fullDescription.trim() : "",
+            category: category ? category.trim() : "",
+            platform: platform ? platform.trim() : "",
+            publisher: publisher ? publisher.trim() : "",
+            logo: logo ? logo.trim() : "",
+            banner: banner ? banner.trim() : "",
+            rating: numRating,
+            isPopular: isPopular !== undefined ? Boolean(isPopular) : false,
+            isFeatured: isFeatured !== undefined ? Boolean(isFeatured) : false,
+            isActive: isActive !== undefined ? Boolean(isActive) : true,
+        });
+        apiResponse_1.default.success(res, game, "Game created successfully", 201);
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/**
+ * PATCH /api/dashboard/admin/games/:id
+ */
+async function updateAdminGame(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const gameId = req.params.id;
+        const body = req.body || {};
+        const game = await game_model_1.default.findById(gameId);
+        if (!game) {
+            throw new errorHandler_1.ApiError("Game not found", 404);
+        }
+        if (body.name && body.name.trim() !== game.name) {
+            const dupName = await game_model_1.default.findOne({ name: body.name.trim(), _id: { $ne: gameId } });
+            if (dupName)
+                throw new errorHandler_1.ApiError("A game with this name already exists", 400);
+        }
+        if (body.slug && body.slug.trim().toLowerCase() !== game.slug) {
+            const dupSlug = await game_model_1.default.findOne({ slug: body.slug.trim().toLowerCase(), _id: { $ne: gameId } });
+            if (dupSlug)
+                throw new errorHandler_1.ApiError("A game with this slug already exists", 400);
+        }
+        if (body.rating !== undefined) {
+            const numRating = Number(body.rating);
+            if (numRating < 0 || numRating > 5) {
+                throw new errorHandler_1.ApiError("Rating must be between 0 and 5", 400);
+            }
+        }
+        const updated = await game_model_1.default.findByIdAndUpdate(gameId, body, { new: true, runValidators: true });
+        apiResponse_1.default.success(res, updated, "Game updated successfully");
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/**
+ * DELETE /api/dashboard/admin/games/:id
+ */
+async function deleteAdminGame(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const game = await game_model_1.default.findByIdAndDelete(req.params.id);
+        if (!game) {
+            throw new errorHandler_1.ApiError("Game not found", 404);
+        }
+        apiResponse_1.default.success(res, null, "Game deleted successfully");
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/* ==========================================================================
+   ADMIN PACKAGES MANAGEMENT
+   ========================================================================== */
+/**
+ * GET /api/dashboard/admin/packages
+ */
+async function getAdminPackages(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+        const query = {};
+        if (req.query.search) {
+            query.name = new RegExp(req.query.search, "i");
+        }
+        if (req.query.game && req.query.game !== "all") {
+            query.game = req.query.game;
+        }
+        if (req.query.isActive !== undefined && req.query.isActive !== "all") {
+            query.isActive = req.query.isActive === "true";
+        }
+        const [packages, total] = await Promise.all([
+            package_model_1.default.find(query).populate("game", "name slug logo").sort({ createdAt: -1 }).skip(skip).limit(limit),
+            package_model_1.default.countDocuments(query),
+        ]);
+        apiResponse_1.default.success(res, {
+            packages,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit),
+            },
+        }, "Packages retrieved successfully");
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/**
+ * GET /api/dashboard/admin/packages/:id
+ */
+async function getAdminPackageById(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const pkg = await package_model_1.default.findById(req.params.id).populate("game", "name slug logo");
+        if (!pkg) {
+            throw new errorHandler_1.ApiError("Package not found", 404);
+        }
+        apiResponse_1.default.success(res, pkg, "Package details retrieved successfully");
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/**
+ * POST /api/dashboard/admin/packages
+ */
+async function createAdminPackage(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const { game, name, amount, price, currency, description, isPopular, isActive } = req.body;
+        if (!game)
+            throw new errorHandler_1.ApiError("Game ID reference is required", 400);
+        if (!name || !name.trim())
+            throw new errorHandler_1.ApiError("Package name is required", 400);
+        if (amount === undefined || Number(amount) <= 0)
+            throw new errorHandler_1.ApiError("Amount must be greater than 0", 400);
+        if (price === undefined || Number(price) <= 0)
+            throw new errorHandler_1.ApiError("Price must be greater than 0", 400);
+        const existGame = await game_model_1.default.findById(game);
+        if (!existGame)
+            throw new errorHandler_1.ApiError("Referenced game does not exist", 400);
+        const pkg = await package_model_1.default.create({
+            game,
+            name: name.trim(),
+            amount: Number(amount),
+            price: Number(price),
+            currency: currency ? currency.trim().toUpperCase() : "USD",
+            description: description ? description.trim() : "",
+            isPopular: isPopular !== undefined ? Boolean(isPopular) : false,
+            isActive: isActive !== undefined ? Boolean(isActive) : true,
+        });
+        const populated = await package_model_1.default.findById(pkg._id).populate("game", "name slug logo");
+        apiResponse_1.default.success(res, populated, "Package created successfully", 201);
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/**
+ * PATCH /api/dashboard/admin/packages/:id
+ */
+async function updateAdminPackage(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const pkgId = req.params.id;
+        const body = req.body || {};
+        const pkg = await package_model_1.default.findById(pkgId);
+        if (!pkg) {
+            throw new errorHandler_1.ApiError("Package not found", 404);
+        }
+        if (body.price !== undefined && Number(body.price) <= 0) {
+            throw new errorHandler_1.ApiError("Price must be greater than 0", 400);
+        }
+        if (body.amount !== undefined && Number(body.amount) <= 0) {
+            throw new errorHandler_1.ApiError("Amount must be greater than 0", 400);
+        }
+        if (body.game) {
+            const existGame = await game_model_1.default.findById(body.game);
+            if (!existGame)
+                throw new errorHandler_1.ApiError("Referenced game does not exist", 400);
+        }
+        const updated = await package_model_1.default.findByIdAndUpdate(pkgId, body, { new: true, runValidators: true }).populate("game", "name slug logo");
+        apiResponse_1.default.success(res, updated, "Package updated successfully");
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/**
+ * DELETE /api/dashboard/admin/packages/:id
+ */
+async function deleteAdminPackage(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const pkg = await package_model_1.default.findByIdAndDelete(req.params.id);
+        if (!pkg) {
+            throw new errorHandler_1.ApiError("Package not found", 404);
+        }
+        apiResponse_1.default.success(res, null, "Package deleted successfully");
     }
     catch (error) {
         next(error);

@@ -24,4 +24,45 @@ export declare function updateUserRole(req: Request, res: Response, next: NextFu
  * Disables or enables a user account.
  */
 export declare function updateUserStatus(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * GET /api/dashboard/admin/games
+ * Returns a paginated, filtered list of games.
+ */
+export declare function getAdminGames(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * GET /api/dashboard/admin/games/:id
+ */
+export declare function getAdminGameById(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * POST /api/dashboard/admin/games
+ */
+export declare function createAdminGame(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * PATCH /api/dashboard/admin/games/:id
+ */
+export declare function updateAdminGame(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * DELETE /api/dashboard/admin/games/:id
+ */
+export declare function deleteAdminGame(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * GET /api/dashboard/admin/packages
+ */
+export declare function getAdminPackages(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * GET /api/dashboard/admin/packages/:id
+ */
+export declare function getAdminPackageById(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * POST /api/dashboard/admin/packages
+ */
+export declare function createAdminPackage(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * PATCH /api/dashboard/admin/packages/:id
+ */
+export declare function updateAdminPackage(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * DELETE /api/dashboard/admin/packages/:id
+ */
+export declare function deleteAdminPackage(req: Request, res: Response, next: NextFunction): Promise<void>;
 //# sourceMappingURL=admin.controller.d.ts.map
