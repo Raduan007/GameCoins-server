@@ -10,6 +10,8 @@ exports.getBuyerPayments = getBuyerPayments;
 exports.getBuyerWishlist = getBuyerWishlist;
 exports.addToWishlist = addToWishlist;
 exports.removeFromWishlist = removeFromWishlist;
+exports.getBuyerProfile = getBuyerProfile;
+exports.updateBuyerProfile = updateBuyerProfile;
 const mongoose_1 = __importDefault(require("mongoose"));
 const db_1 = __importDefault(require("../config/db"));
 const apiResponse_1 = __importDefault(require("../utils/apiResponse"));
@@ -18,6 +20,7 @@ const order_model_1 = __importDefault(require("../models/order.model"));
 const payment_model_1 = __importDefault(require("../models/payment.model"));
 const game_model_1 = __importDefault(require("../models/game.model"));
 const wishlist_model_1 = __importDefault(require("../models/wishlist.model"));
+const user_model_1 = __importDefault(require("../models/user.model"));
 /**
  * GET /api/dashboard/overview
  * Returns dashboard summary metrics for the logged-in user.
@@ -273,6 +276,57 @@ async function removeFromWishlist(req, res, next) {
         }
         await wishlist_model_1.default.deleteOne({ _id: id });
         apiResponse_1.default.success(res, null, "Removed from wishlist", 200);
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/**
+ * GET /api/dashboard/profile
+ * Returns the logged-in user's profile details.
+ * Excludes sensitive fields like password.
+ */
+async function getBuyerProfile(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const userId = req.user?.userId;
+        if (!userId) {
+            throw new errorHandler_1.ApiError("Unauthorized", 401);
+        }
+        const user = await user_model_1.default.findById(userId).select("-password");
+        if (!user) {
+            throw new errorHandler_1.ApiError("User not found", 404);
+        }
+        apiResponse_1.default.success(res, user, "Profile fetched successfully", 200);
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/**
+ * PATCH /api/dashboard/profile
+ * Updates the logged-in user's profile name.
+ * Disallows updating email, role, or status/isActive.
+ */
+async function updateBuyerProfile(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const userId = req.user?.userId;
+        if (!userId) {
+            throw new errorHandler_1.ApiError("Unauthorized", 401);
+        }
+        const { name } = req.body;
+        if (name === undefined || name === null || (typeof name === "string" && name.trim() === "")) {
+            throw new errorHandler_1.ApiError("Name is required", 400);
+        }
+        const user = await user_model_1.default.findById(userId);
+        if (!user) {
+            throw new errorHandler_1.ApiError("User not found", 404);
+        }
+        user.name = name.trim();
+        await user.save();
+        const updatedUser = await user_model_1.default.findById(userId).select("-password");
+        apiResponse_1.default.success(res, updatedUser, "Profile updated successfully", 200);
     }
     catch (error) {
         next(error);

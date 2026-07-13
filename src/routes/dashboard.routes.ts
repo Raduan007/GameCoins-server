@@ -7,6 +7,8 @@ import {
   getBuyerWishlist,
   addToWishlist,
   removeFromWishlist,
+  getBuyerProfile,
+  updateBuyerProfile,
 } from "../controllers/dashboard.controller";
 import { authenticate } from "../middleware/auth.middleware";
 
@@ -19,6 +21,8 @@ router.get("/payments", authenticate, getBuyerPayments);
 router.get("/wishlist", authenticate, getBuyerWishlist);
 router.post("/wishlist", authenticate, addToWishlist);
 router.delete("/wishlist/:id", authenticate, removeFromWishlist);
+router.get("/profile", authenticate, getBuyerProfile);
+router.patch("/profile", authenticate, updateBuyerProfile);
 
 export default router;
 

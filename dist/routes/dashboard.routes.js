@@ -11,5 +11,7 @@ router.get("/payments", auth_middleware_1.authenticate, dashboard_controller_1.g
 router.get("/wishlist", auth_middleware_1.authenticate, dashboard_controller_1.getBuyerWishlist);
 router.post("/wishlist", auth_middleware_1.authenticate, dashboard_controller_1.addToWishlist);
 router.delete("/wishlist/:id", auth_middleware_1.authenticate, dashboard_controller_1.removeFromWishlist);
+router.get("/profile", auth_middleware_1.authenticate, dashboard_controller_1.getBuyerProfile);
+router.patch("/profile", auth_middleware_1.authenticate, dashboard_controller_1.updateBuyerProfile);
 exports.default = router;
 //# sourceMappingURL=dashboard.routes.js.map

@@ -7,6 +7,7 @@ import Order from "../models/order.model";
 import Payment from "../models/payment.model";
 import Game from "../models/game.model";
 import Wishlist from "../models/wishlist.model";
+import User from "../models/user.model";
 
 /**
  * GET /api/dashboard/overview
@@ -335,6 +336,76 @@ export async function removeFromWishlist(
     next(error);
   }
 }
+
+/**
+ * GET /api/dashboard/profile
+ * Returns the logged-in user's profile details.
+ * Excludes sensitive fields like password.
+ */
+export async function getBuyerProfile(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
+
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new ApiError("Unauthorized", 401);
+    }
+
+    const user = await User.findById(userId).select("-password");
+    if (!user) {
+      throw new ApiError("User not found", 404);
+    }
+
+    apiResponse.success(res, user, "Profile fetched successfully", 200);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * PATCH /api/dashboard/profile
+ * Updates the logged-in user's profile name.
+ * Disallows updating email, role, or status/isActive.
+ */
+export async function updateBuyerProfile(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
+
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new ApiError("Unauthorized", 401);
+    }
+
+    const { name } = req.body;
+
+    if (name === undefined || name === null || (typeof name === "string" && name.trim() === "")) {
+      throw new ApiError("Name is required", 400);
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new ApiError("User not found", 404);
+    }
+
+    user.name = name.trim();
+    await user.save();
+
+    const updatedUser = await User.findById(userId).select("-password");
+
+    apiResponse.success(res, updatedUser, "Profile updated successfully", 200);
+  } catch (error) {
+    next(error);
+  }
+}
+
 
 
 

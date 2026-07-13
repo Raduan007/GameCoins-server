@@ -41,4 +41,16 @@ export declare function addToWishlist(req: Request, res: Response, next: NextFun
  * Removes a game from the logged-in user's wishlist.
  */
 export declare function removeFromWishlist(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * GET /api/dashboard/profile
+ * Returns the logged-in user's profile details.
+ * Excludes sensitive fields like password.
+ */
+export declare function getBuyerProfile(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * PATCH /api/dashboard/profile
+ * Updates the logged-in user's profile name.
+ * Disallows updating email, role, or status/isActive.
+ */
+export declare function updateBuyerProfile(req: Request, res: Response, next: NextFunction): Promise<void>;
 //# sourceMappingURL=dashboard.controller.d.ts.map
