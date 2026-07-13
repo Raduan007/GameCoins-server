@@ -14,6 +14,7 @@ const payment_routes_1 = __importDefault(require("./routes/payment.routes"));
 const dashboard_routes_1 = __importDefault(require("./routes/dashboard.routes"));
 const admin_routes_1 = __importDefault(require("./routes/admin.routes"));
 const errorHandler_1 = require("./middleware/errorHandler");
+const db_1 = __importDefault(require("./config/db"));
 const node_dns_1 = __importDefault(require("node:dns"));
 node_dns_1.default.setServers(["8.8.8.8", "8.8.4.4"]);
 const app = (0, express_1.default)();
@@ -39,8 +40,21 @@ app.use("/api/dashboard", dashboard_routes_1.default);
 app.use("/api/dashboard/admin", admin_routes_1.default);
 // Global error handler (must be last)
 app.use(errorHandler_1.errorHandler);
-app.listen(PORT, () => {
-    console.log(`GameCoins server running on http://localhost:${PORT}`);
-});
+const startServer = async () => {
+    try {
+        await (0, db_1.default)();
+        console.log("✅ MongoDB Connected");
+        app.listen(PORT, () => {
+            console.log(`🚀 GameCoins server running on http://localhost:${PORT}`);
+        });
+    }
+    catch (error) {
+        console.error("❌ Failed to connect to MongoDB:", error);
+        process.exit(1);
+    }
+};
+if (require.main === module) {
+    startServer();
+}
 exports.default = app;
 //# sourceMappingURL=index.js.map

@@ -28,5 +28,8 @@ router.delete("/packages/:id", admin_controller_1.deleteAdminPackage);
 router.get("/orders", admin_controller_1.getAdminOrders);
 router.get("/orders/:id", admin_controller_1.getAdminOrderById);
 router.patch("/orders/:id/status", admin_controller_1.updateAdminOrderStatus);
+// Payment Management
+router.get("/payments", admin_controller_1.getAdminPayments);
+router.get("/payments/:id", admin_controller_1.getAdminPaymentById);
 exports.default = router;
 //# sourceMappingURL=admin.routes.js.map

@@ -80,4 +80,14 @@ export declare function getAdminOrderById(req: Request, res: Response, next: Nex
  * Allows admin to update an order's orderStatus.
  */
 export declare function updateAdminOrderStatus(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * GET /api/dashboard/admin/payments
+ * Returns paginated, searchable, filtered list of all payments.
+ */
+export declare function getAdminPayments(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * GET /api/dashboard/admin/payments/:id
+ * Returns full payment details with all populated references.
+ */
+export declare function getAdminPaymentById(req: Request, res: Response, next: NextFunction): Promise<void>;
 //# sourceMappingURL=admin.controller.d.ts.map
