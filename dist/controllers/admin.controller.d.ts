@@ -110,4 +110,29 @@ export declare function updateAdminProfile(req: Request, res: Response, next: Ne
  * Allows admin to change their password.
  */
 export declare function changeAdminPassword(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * PATCH /api/admin/payments/:id/approve
+ * Approves a pending payment.
+ */
+export declare function approveAdminPayment(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * PATCH /api/admin/payments/:id/reject
+ * Rejects a pending payment.
+ */
+export declare function rejectAdminPayment(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * PATCH /api/admin/users/:id/suspend
+ * Suspends user account.
+ */
+export declare function suspendAdminUser(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * PATCH /api/admin/users/:id/block
+ * Blocks user account.
+ */
+export declare function blockAdminUser(req: Request, res: Response, next: NextFunction): Promise<void>;
+/**
+ * PATCH /api/admin/users/:id/activate
+ * Restores user account.
+ */
+export declare function activateAdminUser(req: Request, res: Response, next: NextFunction): Promise<void>;
 //# sourceMappingURL=admin.controller.d.ts.map

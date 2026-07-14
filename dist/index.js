@@ -21,7 +21,10 @@ const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5000;
 // Middleware
 app.use((0, cors_1.default)({
-    origin: "http://localhost:3000",
+    origin: [
+        "http://localhost:3000",
+        "https://game-coins-client-delta.vercel.app",
+    ],
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"],
 }));
@@ -38,6 +41,7 @@ app.use("/api/orders", order_routes_1.default);
 app.use("/api/payments", payment_routes_1.default);
 app.use("/api/dashboard", dashboard_routes_1.default);
 app.use("/api/dashboard/admin", admin_routes_1.default);
+app.use("/api/admin", admin_routes_1.default);
 // Global error handler (must be last)
 app.use(errorHandler_1.errorHandler);
 const startServer = async () => {

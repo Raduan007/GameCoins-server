@@ -58,6 +58,7 @@ export async function register(
       role: "user",
       avatar: "",
       isActive: true,
+      status: "active",
     });
 
     // Exclude password from the response
@@ -117,6 +118,10 @@ export async function login(
 
     if (!user) {
       throw new ApiError("Invalid email or password", 401);
+    }
+
+    if (user.status === "suspended" || user.status === "blocked") {
+      throw new ApiError(`Your account has been ${user.status}. Please contact support.`, 403);
     }
 
     // Compare password using bcrypt
@@ -252,7 +257,12 @@ export async function googleLogin(
         role: "user",
         avatar,
         isActive: true,
+        status: "active",
       });
+    }
+
+    if (user.status === "suspended" || user.status === "blocked") {
+      throw new ApiError(`Your account has been ${user.status}. Please contact support.`, 403);
     }
 
     const jwtSecret = process.env.JWT_SECRET;

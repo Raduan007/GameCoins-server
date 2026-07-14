@@ -43,6 +43,16 @@ exports.PaymentSchema = new mongoose_1.Schema({
         trim: true,
         default: "",
     },
+    status: {
+        type: String,
+        enum: {
+            values: ["pending", "approved", "rejected"],
+            message: "{VALUE} is not a valid status",
+        },
+        default: "pending",
+        required: [true, "Status is required"],
+        index: true,
+    },
 }, {
     timestamps: true,
     collection: "payments",

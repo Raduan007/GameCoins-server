@@ -17,6 +17,9 @@ router.get("/users", admin_controller_1.getAllUsers);
 router.get("/users/:id", admin_controller_1.getUserById);
 router.patch("/users/:id/role", admin_controller_1.updateUserRole);
 router.patch("/users/:id/status", admin_controller_1.updateUserStatus);
+router.patch("/users/:id/suspend", admin_controller_1.suspendAdminUser);
+router.patch("/users/:id/block", admin_controller_1.blockAdminUser);
+router.patch("/users/:id/activate", admin_controller_1.activateAdminUser);
 // Games Management
 router.get("/games", admin_controller_1.getAdminGames);
 router.get("/games/:id", admin_controller_1.getAdminGameById);
@@ -36,5 +39,7 @@ router.patch("/orders/:id/status", admin_controller_1.updateAdminOrderStatus);
 // Payment Management
 router.get("/payments", admin_controller_1.getAdminPayments);
 router.get("/payments/:id", admin_controller_1.getAdminPaymentById);
+router.patch("/payments/:id/approve", admin_controller_1.approveAdminPayment);
+router.patch("/payments/:id/reject", admin_controller_1.rejectAdminPayment);
 exports.default = router;
 //# sourceMappingURL=admin.routes.js.map

@@ -27,6 +27,11 @@ exports.getAdminReports = getAdminReports;
 exports.getAdminProfile = getAdminProfile;
 exports.updateAdminProfile = updateAdminProfile;
 exports.changeAdminPassword = changeAdminPassword;
+exports.approveAdminPayment = approveAdminPayment;
+exports.rejectAdminPayment = rejectAdminPayment;
+exports.suspendAdminUser = suspendAdminUser;
+exports.blockAdminUser = blockAdminUser;
+exports.activateAdminUser = activateAdminUser;
 const mongoose_1 = __importDefault(require("mongoose"));
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const db_1 = __importDefault(require("../config/db"));
@@ -114,7 +119,12 @@ async function getAllUsers(req, res, next) {
         }
         // Status filtering
         if (req.query.status && req.query.status !== "all") {
-            query.isActive = req.query.status === "active";
+            if (["active", "suspended", "blocked"].includes(req.query.status)) {
+                query.status = req.query.status;
+            }
+            else {
+                query.isActive = req.query.status === "active";
+            }
         }
         // Sorting mapping
         let sortOption = { createdAt: -1 }; // default newest
@@ -695,8 +705,14 @@ async function getAdminPayments(req, res, next) {
         if (req.query.paymentMethod && req.query.paymentMethod !== "all") {
             baseQuery.paymentMethod = req.query.paymentMethod;
         }
-        if (req.query.paymentStatus && req.query.paymentStatus !== "all") {
-            baseQuery.paymentStatus = req.query.paymentStatus;
+        const statusFilter = (req.query.status || req.query.paymentStatus);
+        if (statusFilter && statusFilter !== "all") {
+            if (["pending", "approved", "rejected"].includes(statusFilter)) {
+                baseQuery.status = statusFilter;
+            }
+            else {
+                baseQuery.paymentStatus = statusFilter;
+            }
         }
         const searchTerm = req.query.search;
         let payments;
@@ -782,6 +798,9 @@ async function getAdminPaymentById(req, res, next) {
                 { path: "user", select: "name email role" },
             ],
         });
+        if (!payment) {
+            throw new errorHandler_1.ApiError("Payment not found", 404);
+        }
         apiResponse_1.default.success(res, { payment }, "Payment details retrieved successfully");
     }
     catch (error) {
@@ -1158,6 +1177,154 @@ async function changeAdminPassword(req, res, next) {
         user.password = await bcrypt_1.default.hash(newPassword, 10);
         await user.save();
         apiResponse_1.default.success(res, null, "Password changed successfully");
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/**
+ * PATCH /api/admin/payments/:id/approve
+ * Approves a pending payment.
+ */
+async function approveAdminPayment(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const id = req.params.id;
+        if (!id || !mongoose_1.default.Types.ObjectId.isValid(id)) {
+            throw new errorHandler_1.ApiError("Payment not found", 404);
+        }
+        const payment = await payment_model_1.default.findById(id);
+        if (!payment) {
+            throw new errorHandler_1.ApiError("Payment not found", 404);
+        }
+        payment.status = "approved";
+        payment.paymentStatus = "paid";
+        await payment.save();
+        const order = await order_model_1.default.findById(payment.order);
+        if (!order) {
+            throw new errorHandler_1.ApiError("Related order not found", 404);
+        }
+        order.paymentStatus = "paid";
+        order.orderStatus = "completed";
+        await order.save();
+        const paymentObj = payment.toObject();
+        const responseData = {
+            ...paymentObj,
+            userId: payment.user,
+            orderId: payment.order,
+            method: payment.paymentMethod,
+            status: payment.status,
+        };
+        apiResponse_1.default.success(res, responseData, "Payment approved successfully", 200);
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/**
+ * PATCH /api/admin/payments/:id/reject
+ * Rejects a pending payment.
+ */
+async function rejectAdminPayment(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const id = req.params.id;
+        if (!id || !mongoose_1.default.Types.ObjectId.isValid(id)) {
+            throw new errorHandler_1.ApiError("Payment not found", 404);
+        }
+        const payment = await payment_model_1.default.findById(id);
+        if (!payment) {
+            throw new errorHandler_1.ApiError("Payment not found", 404);
+        }
+        payment.status = "rejected";
+        payment.paymentStatus = "failed";
+        await payment.save();
+        const order = await order_model_1.default.findById(payment.order);
+        if (order) {
+            order.paymentStatus = "failed";
+            order.orderStatus = "cancelled";
+            await order.save();
+        }
+        const paymentObj = payment.toObject();
+        const responseData = {
+            ...paymentObj,
+            userId: payment.user,
+            orderId: payment.order,
+            method: payment.paymentMethod,
+            status: payment.status,
+        };
+        apiResponse_1.default.success(res, responseData, "Payment rejected successfully", 200);
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/**
+ * PATCH /api/admin/users/:id/suspend
+ * Suspends user account.
+ */
+async function suspendAdminUser(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const userId = req.params.id;
+        if (!userId || !mongoose_1.default.Types.ObjectId.isValid(userId)) {
+            throw new errorHandler_1.ApiError("User not found", 404);
+        }
+        // Prevent suspending own account
+        if (userId === req.user?.userId) {
+            throw new errorHandler_1.ApiError("Forbidden: Cannot suspend your own account", 400);
+        }
+        const user = await user_model_1.default.findByIdAndUpdate(userId, { status: "suspended", isActive: false }, { new: true }).select("-password");
+        if (!user) {
+            throw new errorHandler_1.ApiError("User not found", 404);
+        }
+        apiResponse_1.default.success(res, user, "User account suspended successfully");
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/**
+ * PATCH /api/admin/users/:id/block
+ * Blocks user account.
+ */
+async function blockAdminUser(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const userId = req.params.id;
+        if (!userId || !mongoose_1.default.Types.ObjectId.isValid(userId)) {
+            throw new errorHandler_1.ApiError("User not found", 404);
+        }
+        // Prevent blocking own account
+        if (userId === req.user?.userId) {
+            throw new errorHandler_1.ApiError("Forbidden: Cannot block your own account", 400);
+        }
+        const user = await user_model_1.default.findByIdAndUpdate(userId, { status: "blocked", isActive: false }, { new: true }).select("-password");
+        if (!user) {
+            throw new errorHandler_1.ApiError("User not found", 404);
+        }
+        apiResponse_1.default.success(res, user, "User account blocked successfully");
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/**
+ * PATCH /api/admin/users/:id/activate
+ * Restores user account.
+ */
+async function activateAdminUser(req, res, next) {
+    try {
+        await (0, db_1.default)();
+        const userId = req.params.id;
+        if (!userId || !mongoose_1.default.Types.ObjectId.isValid(userId)) {
+            throw new errorHandler_1.ApiError("User not found", 404);
+        }
+        const user = await user_model_1.default.findByIdAndUpdate(userId, { status: "active", isActive: true }, { new: true }).select("-password");
+        if (!user) {
+            throw new errorHandler_1.ApiError("User not found", 404);
+        }
+        apiResponse_1.default.success(res, user, "User account activated successfully");
     }
     catch (error) {
         next(error);

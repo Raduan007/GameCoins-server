@@ -24,6 +24,11 @@ import {
   getAdminProfile,
   updateAdminProfile,
   changeAdminPassword,
+  approveAdminPayment,
+  rejectAdminPayment,
+  suspendAdminUser,
+  blockAdminUser,
+  activateAdminUser,
 } from "../controllers/admin.controller";
 import { authenticate, authorizeRoles } from "../middleware/auth.middleware";
 
@@ -45,6 +50,9 @@ router.get("/users", getAllUsers);
 router.get("/users/:id", getUserById);
 router.patch("/users/:id/role", updateUserRole);
 router.patch("/users/:id/status", updateUserStatus);
+router.patch("/users/:id/suspend", suspendAdminUser);
+router.patch("/users/:id/block", blockAdminUser);
+router.patch("/users/:id/activate", activateAdminUser);
 
 // Games Management
 router.get("/games", getAdminGames);
@@ -68,5 +76,7 @@ router.patch("/orders/:id/status", updateAdminOrderStatus);
 // Payment Management
 router.get("/payments", getAdminPayments);
 router.get("/payments/:id", getAdminPaymentById);
+router.patch("/payments/:id/approve", approveAdminPayment);
+router.patch("/payments/:id/reject", rejectAdminPayment);
 
 export default router;

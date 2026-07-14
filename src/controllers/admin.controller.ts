@@ -110,7 +110,11 @@ export async function getAllUsers(
 
     // Status filtering
     if (req.query.status && req.query.status !== "all") {
-      query.isActive = req.query.status === "active";
+      if (["active", "suspended", "blocked"].includes(req.query.status as string)) {
+        query.status = req.query.status;
+      } else {
+        query.isActive = req.query.status === "active";
+      }
     }
 
     // Sorting mapping
@@ -813,8 +817,13 @@ export async function getAdminPayments(
       baseQuery.paymentMethod = req.query.paymentMethod;
     }
 
-    if (req.query.paymentStatus && req.query.paymentStatus !== "all") {
-      baseQuery.paymentStatus = req.query.paymentStatus;
+    const statusFilter = (req.query.status || req.query.paymentStatus) as string;
+    if (statusFilter && statusFilter !== "all") {
+      if (["pending", "approved", "rejected"].includes(statusFilter)) {
+        baseQuery.status = statusFilter;
+      } else {
+        baseQuery.paymentStatus = statusFilter;
+      }
     }
 
     const searchTerm = req.query.search as string;
@@ -914,6 +923,10 @@ export async function getAdminPaymentById(
           { path: "user", select: "name email role" },
         ],
       });
+
+    if (!payment) {
+      throw new ApiError("Payment not found", 404);
+    }
 
     apiResponse.success(res, { payment }, "Payment details retrieved successfully");
   } catch (error) {
@@ -1349,3 +1362,212 @@ export async function changeAdminPassword(
     next(error);
   }
 }
+
+/**
+ * PATCH /api/admin/payments/:id/approve
+ * Approves a pending payment.
+ */
+export async function approveAdminPayment(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
+
+    const id = req.params.id as string;
+
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      throw new ApiError("Payment not found", 404);
+    }
+
+    const payment = await Payment.findById(id);
+    if (!payment) {
+      throw new ApiError("Payment not found", 404);
+    }
+
+    payment.status = "approved";
+    payment.paymentStatus = "paid";
+    await payment.save();
+
+    const order = await Order.findById(payment.order);
+    if (!order) {
+      throw new ApiError("Related order not found", 404);
+    }
+
+    order.paymentStatus = "paid";
+    order.orderStatus = "completed";
+    await order.save();
+
+    const paymentObj = payment.toObject();
+    const responseData = {
+      ...paymentObj,
+      userId: payment.user,
+      orderId: payment.order,
+      method: payment.paymentMethod,
+      status: payment.status,
+    };
+
+    apiResponse.success(res, responseData, "Payment approved successfully", 200);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * PATCH /api/admin/payments/:id/reject
+ * Rejects a pending payment.
+ */
+export async function rejectAdminPayment(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
+
+    const id = req.params.id as string;
+
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      throw new ApiError("Payment not found", 404);
+    }
+
+    const payment = await Payment.findById(id);
+    if (!payment) {
+      throw new ApiError("Payment not found", 404);
+    }
+
+    payment.status = "rejected";
+    payment.paymentStatus = "failed";
+    await payment.save();
+
+    const order = await Order.findById(payment.order);
+    if (order) {
+      order.paymentStatus = "failed";
+      order.orderStatus = "cancelled";
+      await order.save();
+    }
+
+    const paymentObj = payment.toObject();
+    const responseData = {
+      ...paymentObj,
+      userId: payment.user,
+      orderId: payment.order,
+      method: payment.paymentMethod,
+      status: payment.status,
+    };
+
+    apiResponse.success(res, responseData, "Payment rejected successfully", 200);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * PATCH /api/admin/users/:id/suspend
+ * Suspends user account.
+ */
+export async function suspendAdminUser(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
+
+    const userId = req.params.id as string;
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      throw new ApiError("User not found", 404);
+    }
+
+    // Prevent suspending own account
+    if (userId === req.user?.userId) {
+      throw new ApiError("Forbidden: Cannot suspend your own account", 400);
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { status: "suspended", isActive: false },
+      { new: true }
+    ).select("-password");
+
+    if (!user) {
+      throw new ApiError("User not found", 404);
+    }
+
+    apiResponse.success(res, user, "User account suspended successfully");
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * PATCH /api/admin/users/:id/block
+ * Blocks user account.
+ */
+export async function blockAdminUser(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
+
+    const userId = req.params.id as string;
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      throw new ApiError("User not found", 404);
+    }
+
+    // Prevent blocking own account
+    if (userId === req.user?.userId) {
+      throw new ApiError("Forbidden: Cannot block your own account", 400);
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { status: "blocked", isActive: false },
+      { new: true }
+    ).select("-password");
+
+    if (!user) {
+      throw new ApiError("User not found", 404);
+    }
+
+    apiResponse.success(res, user, "User account blocked successfully");
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * PATCH /api/admin/users/:id/activate
+ * Restores user account.
+ */
+export async function activateAdminUser(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
+
+    const userId = req.params.id as string;
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      throw new ApiError("User not found", 404);
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { status: "active", isActive: true },
+      { new: true }
+    ).select("-password");
+
+    if (!user) {
+      throw new ApiError("User not found", 404);
+    }
+
+    apiResponse.success(res, user, "User account activated successfully");
+  } catch (error) {
+    next(error);
+  }
+}

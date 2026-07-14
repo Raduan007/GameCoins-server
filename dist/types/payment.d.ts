@@ -6,6 +6,7 @@ export interface IPayment {
     amount: number;
     paymentMethod: "bkash" | "nagad" | "card" | "sslcommerz";
     paymentStatus: "pending" | "paid" | "failed";
+    status: "pending" | "approved" | "rejected";
     transactionId?: string;
     createdAt?: Date;
     updatedAt?: Date;

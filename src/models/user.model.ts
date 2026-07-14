@@ -32,6 +32,12 @@ const UserSchema = new Schema<IUser>(
       type: Boolean,
       default: true,
     },
+    status: {
+      type: String,
+      enum: ["active", "suspended", "blocked"],
+      default: "active",
+      index: true,
+    },
   },
   {
     timestamps: true,

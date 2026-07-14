@@ -72,6 +72,7 @@ async function createPayment(req, res, next) {
             amount: order.totalPrice,
             paymentMethod,
             paymentStatus: "pending",
+            status: "pending",
         });
         // 6. Return response
         apiResponse_1.default.success(res, payment, "Payment created successfully", 201);

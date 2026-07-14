@@ -44,6 +44,7 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/dashboard/admin", adminRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Global error handler (must be last)
 app.use(errorHandler);

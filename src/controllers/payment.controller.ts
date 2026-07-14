@@ -90,6 +90,7 @@ export async function createPayment(
       amount: order.totalPrice,
       paymentMethod,
       paymentStatus: "pending",
+      status: "pending",
     });
 
     // 6. Return response

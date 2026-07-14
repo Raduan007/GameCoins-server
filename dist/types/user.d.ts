@@ -6,6 +6,7 @@ export interface IUser {
     role: "user" | "admin" | "seller";
     avatar?: string;
     isActive: boolean;
+    status: "active" | "suspended" | "blocked";
     createdAt?: Date;
     updatedAt?: Date;
 }

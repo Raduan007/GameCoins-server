@@ -63,6 +63,15 @@ export declare const PaymentSchema: Schema<IPayment, import("mongoose").Model<IP
     }, "id"> & import("mongoose").HydratedDocumentOverrides<{
         id: string;
     }>> | undefined;
+    status?: import("mongoose").SchemaDefinitionProperty<"pending" | "approved" | "rejected", IPayment, import("mongoose").Document<unknown, {}, IPayment, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<IPayment & Required<{
+        _id: string;
+    }> & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>> | undefined;
     transactionId?: import("mongoose").SchemaDefinitionProperty<string | undefined, IPayment, import("mongoose").Document<unknown, {}, IPayment, {
         id: string;
     }, import("mongoose").DefaultSchemaOptions> & Omit<IPayment & Required<{

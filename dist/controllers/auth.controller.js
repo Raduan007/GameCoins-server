@@ -47,6 +47,7 @@ async function register(req, res, next) {
             role: "user",
             avatar: "",
             isActive: true,
+            status: "active",
         });
         // Exclude password from the response
         const responseData = {
@@ -89,6 +90,9 @@ async function login(req, res, next) {
         const user = await user_model_1.default.findOne({ email });
         if (!user) {
             throw new errorHandler_1.ApiError("Invalid email or password", 401);
+        }
+        if (user.status === "suspended" || user.status === "blocked") {
+            throw new errorHandler_1.ApiError(`Your account has been ${user.status}. Please contact support.`, 403);
         }
         // Compare password using bcrypt
         const isMatch = await bcrypt_1.default.compare(password, user.password);
@@ -197,7 +201,11 @@ async function googleLogin(req, res, next) {
                 role: "user",
                 avatar,
                 isActive: true,
+                status: "active",
             });
+        }
+        if (user.status === "suspended" || user.status === "blocked") {
+            throw new errorHandler_1.ApiError(`Your account has been ${user.status}. Please contact support.`, 403);
         }
         const jwtSecret = process.env.JWT_SECRET;
         if (!jwtSecret) {

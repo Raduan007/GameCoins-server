@@ -64,6 +64,12 @@ const UserSchema = new mongoose_1.Schema({
         type: Boolean,
         default: true,
     },
+    status: {
+        type: String,
+        enum: ["active", "suspended", "blocked"],
+        default: "active",
+        index: true,
+    },
 }, {
     timestamps: true,
     collection: "users",
