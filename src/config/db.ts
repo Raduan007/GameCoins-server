@@ -29,7 +29,11 @@ async function connectDB(): Promise<typeof mongoose> {
 
   if (!cached.promise) {
     const opts = {
-      bufferCommands: false,
+      // bufferCommands defaults to true — Mongoose will queue operations
+      // while the connection is being (re)established.
+      // Setting bufferCommands: false was causing failures on production cold
+      // starts (Render free tier spin-down) where mutation endpoints hit
+      // Mongoose before the connection was ready.
     };
 
     cached.promise = mongoose.connect(MONGODB_URI!, opts).then((m) => m);

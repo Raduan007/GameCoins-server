@@ -46,9 +46,10 @@ export function errorHandler(
   res: Response,
   _next: NextFunction
 ): void {
-  // Log all errors to the terminal during development
-  if (process.env.NODE_ENV !== "production") {
-    console.error("[API Error]", error);
+  // Always log the full error — critical for diagnosing production failures on Render
+  console.error("[API Error]", error);
+  if (error instanceof Error) {
+    console.error(error.stack);
   }
 
   // Mongoose validation error — return 400 with field-level messages
