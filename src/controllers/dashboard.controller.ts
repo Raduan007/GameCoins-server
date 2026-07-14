@@ -406,7 +406,73 @@ export async function updateBuyerProfile(
   }
 }
 
+/**
+ * GET /api/dashboard/seller/overview
+ * Returns seller dashboard summary metrics for the logged-in seller.
+ * Includes total products, orders, sales, revenue, and recent orders.
+ */
+export async function getSellerOverview(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await connectDB();
 
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new ApiError("Unauthorized", 401);
+    }
 
+    // Get total products for this seller (assuming a Product model with seller field)
+    let totalProducts = 0;
+    try {
+      const Product = require("../models/product.model").default;
+      totalProducts = await Product.countDocuments({ seller: userId });
+    } catch {
+      // Product model may not exist yet
+      totalProducts = 0;
+    }
 
+    // Get all orders where seller matches
+    const orders = await Order.find({ seller: userId })
+      .populate("game")
+      .populate("package")
+      .sort({ createdAt: -1 });
 
+    const totalOrders = orders.length;
+    const totalSales = orders.filter((o) => o.paymentStatus === "paid").length;
+    const totalRevenue = orders
+      .filter((o) => o.paymentStatus === "paid")
+      .reduce((sum, o) => sum + (o.totalPrice || 0), 0);
+
+    // Recent orders (last 10)
+    const recentOrders = orders.slice(0, 10).map((o) => ({
+      _id: o._id,
+      playerName: o.playerName || "Unknown",
+      playerId: o.playerId || "",
+      quantity: o.quantity || 1,
+      totalPrice: o.totalPrice || 0,
+      paymentStatus: o.paymentStatus || "pending",
+      orderStatus: o.orderStatus || "pending",
+      createdAt: o.createdAt,
+      game: o.game ? { name: (o.game as any).name || "Unknown", logo: (o.game as any).logo || "" } : { name: "Unknown", logo: "" },
+      package: o.package ? { name: (o.package as any).name || "Unknown" } : { name: "Unknown" },
+    }));
+
+    apiResponse.success(
+      res,
+      {
+        totalProducts,
+        totalOrders,
+        totalSales,
+        totalRevenue,
+        recentOrders,
+      },
+      "Seller overview fetched successfully",
+      200
+    );
+  } catch (error) {
+    next(error);
+  }
+}

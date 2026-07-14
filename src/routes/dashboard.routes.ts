@@ -9,11 +9,13 @@ import {
   removeFromWishlist,
   getBuyerProfile,
   updateBuyerProfile,
+  getSellerOverview,
 } from "../controllers/dashboard.controller";
 import { authenticate } from "../middleware/auth.middleware";
 
 const router = Router();
 
+// Buyer routes
 router.get("/overview", authenticate, getDashboardOverview);
 router.get("/orders", authenticate, getBuyerOrders);
 router.get("/orders/:id", authenticate, getBuyerOrderById);
@@ -24,5 +26,7 @@ router.delete("/wishlist/:id", authenticate, removeFromWishlist);
 router.get("/profile", authenticate, getBuyerProfile);
 router.patch("/profile", authenticate, updateBuyerProfile);
 
-export default router;
+// Seller routes
+router.get("/seller/overview", authenticate, getSellerOverview);
 
+export default router;
