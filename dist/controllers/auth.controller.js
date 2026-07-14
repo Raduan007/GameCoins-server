@@ -175,7 +175,11 @@ async function googleLogin(req, res, next) {
         }
         const payload = await googleRes.json();
         // Validate client ID matches
-        if (payload.aud !== "609340969593-kjbcqp5ca98ie65hm8kd7qm0of0l51uj.apps.googleusercontent.com") {
+        const googleClientId = process.env.GOOGLE_CLIENT_ID;
+        if (!googleClientId) {
+            throw new Error("GOOGLE_CLIENT_ID is not defined in the environment");
+        }
+        if (payload.aud !== googleClientId) {
             throw new errorHandler_1.ApiError("Invalid Google client ID audience mismatch", 401);
         }
         const email = payload.email.trim().toLowerCase();
